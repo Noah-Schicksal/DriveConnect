@@ -33,6 +33,30 @@ CREATE TABLE franquia (
     deletado_em TIMESTAMP
 );
 
+-- PLANO DE SEGURO (definido por cada locadora parceira)
+-- O plano Básico tem obrigatorio = TRUE e é sempre incluído na reserva
+-- Constraint garante no máximo 1 plano obrigatório ativo por franquia
+CREATE TABLE plano_seguro (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    franquia_id UUID NOT NULL REFERENCES franquia(id),
+
+    nome VARCHAR(100) NOT NULL,       -- ex: 'Básico', 'Standard', 'Premium'
+    descricao TEXT,                    -- texto livre descrevendo as coberturas
+    percentual DECIMAL(5,2) NOT NULL   -- ex: 0.00 (básico), 5.00, 12.50
+        CHECK (percentual >= 0 AND percentual <= 100),
+    obrigatorio BOOLEAN DEFAULT FALSE,  -- TRUE = plano Básico, sempre incluso
+
+    ativo BOOLEAN DEFAULT TRUE,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deletado_em TIMESTAMP
+);
+
+-- Garante 1 único plano obrigatório ativo por franquia (requer btree_gist)
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+CREATE UNIQUE INDEX unique_plano_obrigatorio_por_franquia
+    ON plano_seguro (franquia_id)
+    WHERE (obrigatorio = TRUE AND deletado_em IS NULL AND ativo = TRUE);
+
 -- FILIAL
 CREATE TABLE filial (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -90,7 +114,24 @@ CREATE TABLE reserva (
     data_retirada_real TIMESTAMP,
     data_devolucao_real TIMESTAMP,
     valor_total DECIMAL(10,2),
-    status VARCHAR(20) NOT NULL CHECK (status IN ('RESERVADA', 'ATIVA', 'FINALIZADA', 'CANCELADA')),
+    -- PENDENTE_PAGAMENTO: aguardando pagamento (bloqueio temporário do veículo)
+    -- EXPIRADA: pagamento não concluído no tempo limite, veículo liberado
+    status VARCHAR(25) NOT NULL CHECK (status IN ('PENDENTE_PAGAMENTO', 'RESERVADA', 'ATIVA', 'FINALIZADA', 'CANCELADA', 'EXPIRADA')),
+
+    -- Rastreamento do pagamento InfinitePay
+    infinitepay_order_nsu   VARCHAR(255),  -- ID do pedido = reserva.id
+    infinitepay_slug        VARCHAR(255),  -- Código da fatura na InfinitePay
+    infinitepay_nsu         VARCHAR(255),  -- ID único da transação aprovada
+    metodo_pagamento        VARCHAR(20),   -- "credit_card" ou "pix"
+    link_pagamento          TEXT,          -- URL do checkout gerado
+    comprovante_url         TEXT,          -- URL do comprovante (vem no webhook)
+    pagamento_em            TIMESTAMP,     -- Quando o pagamento foi confirmado
+    expira_em               TIMESTAMP,     -- Expiração do PENDENTE_PAGAMENTO
+
+    -- Seguro contratado
+    plano_seguro_id UUID REFERENCES plano_seguro(id),
+    valor_seguro    DECIMAL(10,2),          -- valor calculado e fixado no momento da reserva
+
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deletado_em TIMESTAMP
 );
@@ -121,3 +162,4 @@ CREATE INDEX idx_veiculo_filial ON veiculo(filial_id);
 CREATE INDEX idx_reserva_veiculo ON reserva(veiculo_id);
 CREATE INDEX idx_reserva_cliente ON reserva(cliente_id);
 CREATE INDEX idx_reserva_periodo ON reserva(data_inicio, data_fim);
+CREATE INDEX idx_plano_seguro_franquia ON plano_seguro(franquia_id);

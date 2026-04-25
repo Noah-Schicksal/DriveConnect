@@ -1,0 +1,292 @@
+import 'dotenv/config';
+import { query } from '../db/index.js';
+import { gerarLinkPagamento } from './payment.service.js';
+import { buscarPlanoBasico, buscarPlanoPorId, calcularValorSeguro } from './seguro.service.js';
+
+const EXPIRACAO_MINUTOS = Number(process.env.PAGAMENTO_EXPIRACAO_MINUTOS) || 15;
+
+// ──────────────────────────────────────────────
+// DISPONIBILIDADE
+// ──────────────────────────────────────────────
+
+/**
+ * Busca a primeira unidade física disponível de um modelo para o período.
+ * Garante (A): nenhum veículo pode ter reservas conflitantes ativas.
+ * Status considerados conflitantes: PENDENTE_PAGAMENTO, RESERVADA, ATIVA.
+ */
+export async function buscarVeiculoDisponivel(
+  modeloId: number,
+  dataInicio: Date,
+  dataFim: Date,
+): Promise<string | null> {
+  const sql = `
+    SELECT v.id
+    FROM veiculo v
+    WHERE v.modelo_id = $1
+      AND v.status = 'DISPONIVEL'
+      AND v.deletado_em IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM reserva r
+        WHERE r.veiculo_id = v.id
+          AND r.status IN ('PENDENTE_PAGAMENTO', 'RESERVADA', 'ATIVA')
+          AND r.data_inicio < $3
+          AND r.data_fim > $2
+      )
+    LIMIT 1;
+  `;
+
+  const resultado = await query(sql, [modeloId, dataInicio, dataFim]);
+  return resultado.rows[0]?.id ?? null;
+}
+
+/**
+ * Calcula o valor total da reserva com base na tabela de preço dinâmico.
+ * Fallback para preco_base_diaria do tipo_carro quando não há registro específico.
+ */
+export async function calcularValorTotal(
+  modeloId: number,
+  filialId: string,
+  dataInicio: Date,
+  dataFim: Date,
+): Promise<number> {
+  const numeroDias = Math.ceil(
+    (dataFim.getTime() - dataInicio.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  // Verifica tabela de preço dinâmico para o período e filial
+  const sqlDinamico = `
+    SELECT tp.valor_diaria
+    FROM tabela_preco tp
+    JOIN modelo m ON m.tipo_carro_id = tp.tipo_carro_id
+    WHERE m.id = $1
+      AND tp.filial_id = $2
+      AND tp.data_inicio <= $3
+      AND tp.data_fim >= $4
+    LIMIT 1;
+  `;
+
+  const resultadoDinamico = await query(sqlDinamico, [
+    modeloId,
+    filialId,
+    dataInicio,
+    dataFim,
+  ]);
+
+  if (resultadoDinamico.rows[0]) {
+    return Number(resultadoDinamico.rows[0].valor_diaria) * numeroDias;
+  }
+
+  // Fallback: preço base do tipo de carro
+  const sqlBase = `
+    SELECT tc.preco_base_diaria
+    FROM tipo_carro tc
+    JOIN modelo m ON m.tipo_carro_id = tc.id
+    WHERE m.id = $1;
+  `;
+
+  const resultadoBase = await query(sqlBase, [modeloId]);
+  const precoDiaria = Number(resultadoBase.rows[0]?.preco_base_diaria ?? 0);
+
+  return precoDiaria * numeroDias;
+}
+
+// ──────────────────────────────────────────────
+// CRIAÇÃO E CONFIRMAÇÃO DE RESERVA
+// ──────────────────────────────────────────────
+
+interface CriarReservaParams {
+  clienteId: string;
+  veiculoId: string;
+  franquiaId: string;        // necessário para buscar o plano básico correto
+  filialRetiradaId: string;
+  filialDevolucaoId: string;
+  dataInicio: Date;
+  dataFim: Date;
+  valorAluguel: number;      // valor do aluguel puro (sem seguro)
+  nomeCliente: string;
+  emailCliente: string;
+  telefoneCliente?: string;
+  descricaoModelo: string;
+  planoSeguroId?: string;    // opcional: se não informado, usa o plano básico
+}
+
+export interface ReservaCriada {
+  reservaId: string;
+  linkPagamento: string;
+  valorTotal: number;
+  valorSeguro: number;
+  planoSeguro: string;
+}
+
+/**
+ * Cria uma reserva em status PENDENTE_PAGAMENTO e gera o link de pagamento.
+ * O veículo fica bloqueado por EXPIRACAO_MINUTOS para esse cliente.
+ */
+export async function criarReservaPendente(
+  params: CriarReservaParams,
+): Promise<ReservaCriada> {
+  const expiraEm = new Date(Date.now() + EXPIRACAO_MINUTOS * 60 * 1000);
+
+  // Resolve o plano de seguro: usa o escolhido pelo cliente ou o plano básico obrigatório
+  const plano = params.planoSeguroId
+    ? await buscarPlanoPorId(params.planoSeguroId, params.franquiaId)
+    : null;
+
+  const planoFinal = plano ?? await buscarPlanoBasico(params.franquiaId);
+  const valorSeguro = calcularValorSeguro(planoFinal.percentual, params.valorAluguel);
+  const valorTotal = params.valorAluguel + valorSeguro;
+
+  // Cria a reserva pendente com seguro incluído
+  const sqlInsert = `
+    INSERT INTO reserva (
+      cliente_id, veiculo_id, filial_retirada_id, filial_devolucao_id,
+      data_inicio, data_fim, valor_total, status, expira_em,
+      plano_seguro_id, valor_seguro
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDENTE_PAGAMENTO', $8, $9, $10)
+    RETURNING id;
+  `;
+
+  const resultado = await query(sqlInsert, [
+    params.clienteId,
+    params.veiculoId,
+    params.filialRetiradaId,
+    params.filialDevolucaoId,
+    params.dataInicio,
+    params.dataFim,
+    valorTotal,
+    expiraEm,
+    planoFinal.id,
+    valorSeguro,
+  ]);
+
+  const reservaId: string = resultado.rows[0].id;
+
+  // Gera o link na InfinitePay com itens discriminados (aluguel + seguro)
+  const { link_pagamento, slug } = await gerarLinkPagamento({
+    orderNsu: reservaId,
+    itens: [
+      {
+        quantity: 1,
+        price: Math.round(params.valorAluguel * 100), // centavos
+        description: params.descricaoModelo,
+      },
+      ...(valorSeguro > 0 ? [{
+        quantity: 1,
+        price: Math.round(valorSeguro * 100), // centavos
+        description: `Seguro ${planoFinal.nome}`,
+      }] : []),
+    ],
+    cliente: {
+      name: params.nomeCliente,
+      email: params.emailCliente,
+      ...(params.telefoneCliente ? { phone_number: params.telefoneCliente } : {}),
+    },
+  });
+
+  await query(
+    `UPDATE reserva SET link_pagamento = $1, infinitepay_order_nsu = $2, infinitepay_slug = $3 WHERE id = $4`,
+    [link_pagamento, reservaId, slug, reservaId],
+  );
+
+  return { reservaId, linkPagamento: link_pagamento, valorTotal, valorSeguro, planoSeguro: planoFinal.nome };
+}
+
+interface DadosWebhook {
+  order_nsu: string;
+  transaction_nsu: string;
+  invoice_slug: string;
+  capture_method: string;
+  receipt_url: string;
+}
+
+/**
+ * Confirma uma reserva após receber o webhook de pagamento aprovado.
+ * Muda o status de PENDENTE_PAGAMENTO para RESERVADA.
+ */
+export async function confirmarReserva(dados: DadosWebhook): Promise<void> {
+  const sql = `
+    UPDATE reserva
+    SET
+      status = 'RESERVADA',
+      infinitepay_nsu = $1,
+      metodo_pagamento = $2,
+      comprovante_url = $3,
+      pagamento_em = NOW()
+    WHERE id = $4
+      AND status = 'PENDENTE_PAGAMENTO'
+      AND deletado_em IS NULL;
+  `;
+
+  await query(sql, [
+    dados.transaction_nsu,
+    dados.capture_method,
+    dados.receipt_url,
+    dados.order_nsu, // order_nsu = reserva.id
+  ]);
+}
+
+// ──────────────────────────────────────────────
+// GARANTIA B: VERIFICAÇÃO DE RETIRADA
+// ──────────────────────────────────────────────
+
+export interface StatusRetirada {
+  liberado: boolean;
+  motivo?: string;
+}
+
+/**
+ * Verifica em tempo real se o veículo de uma reserva está pronto para retirada.
+ * Garantia B: chamada pela franquia no momento de entregar as chaves.
+ */
+export async function verificarDisponibilidadeRetirada(
+  reservaId: string,
+): Promise<StatusRetirada> {
+  const sql = `
+    SELECT r.status AS reserva_status, v.status AS veiculo_status
+    FROM reserva r
+    JOIN veiculo v ON v.id = r.veiculo_id
+    WHERE r.id = $1
+      AND r.deletado_em IS NULL;
+  `;
+
+  const resultado = await query(sql, [reservaId]);
+
+  if (!resultado.rows[0]) {
+    return { liberado: false, motivo: 'Reserva não encontrada.' };
+  }
+
+  const { reserva_status, veiculo_status } = resultado.rows[0];
+
+  if (reserva_status !== 'RESERVADA') {
+    return { liberado: false, motivo: `Status da reserva inválido para retirada: ${reserva_status}` };
+  }
+
+  if (veiculo_status !== 'DISPONIVEL') {
+    return { liberado: false, motivo: `Veículo não está disponível: ${veiculo_status}` };
+  }
+
+  return { liberado: true };
+}
+
+// ──────────────────────────────────────────────
+// JOB: EXPIRAÇÃO DE RESERVAS PENDENTES
+// ──────────────────────────────────────────────
+
+/**
+ * Expira reservas PENDENTE_PAGAMENTO cujo tempo limite foi ultrapassado.
+ * Deve ser chamada periodicamente (ex: a cada 5 minutos via setInterval ou cron).
+ */
+export async function expirarReservasPendentes(): Promise<number> {
+  const sql = `
+    UPDATE reserva
+    SET status = 'EXPIRADA'
+    WHERE status = 'PENDENTE_PAGAMENTO'
+      AND expira_em < NOW()
+      AND deletado_em IS NULL
+    RETURNING id;
+  `;
+
+  const resultado = await query(sql);
+  return resultado.rowCount ?? 0;
+}
