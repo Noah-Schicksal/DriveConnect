@@ -6,7 +6,6 @@ import { query } from '../db/index.js';
 
 export interface PlanoSeguro {
   id: string;
-  franquia_id: string;
   nome: string;
   descricao: string | null;
   percentual: number;
@@ -15,7 +14,6 @@ export interface PlanoSeguro {
 }
 
 interface CriarPlanoParams {
-  franquiaId: string;
   nome: string;
   descricao?: string;
   percentual: number;
@@ -27,18 +25,16 @@ interface CriarPlanoParams {
 // ──────────────────────────────────────────────
 
 /**
- * Lista todos os planos ativos de uma locadora.
+ * Lista todos os planos de seguro ativos da empresa.
  * O plano obrigatório (Básico) sempre aparece primeiro.
  */
-export async function listarPlanosDaLocadora(franquiaId: string): Promise<PlanoSeguro[]> {
+export async function listarPlanos(): Promise<PlanoSeguro[]> {
   const resultado = await query(
-    `SELECT id, franquia_id, nome, descricao, percentual, obrigatorio, ativo
+    `SELECT id, nome, descricao, percentual, obrigatorio, ativo
      FROM plano_seguro
-     WHERE franquia_id = $1
-       AND ativo = TRUE
+     WHERE ativo = TRUE
        AND deletado_em IS NULL
      ORDER BY obrigatorio DESC, percentual ASC`,
-    [franquiaId],
   );
 
   return resultado.rows.map((r) => ({
@@ -48,41 +44,37 @@ export async function listarPlanosDaLocadora(franquiaId: string): Promise<PlanoS
 }
 
 /**
- * Busca o plano obrigatório (Básico) de uma locadora.
- * Lança erro se a locadora não tiver um plano básico configurado.
+ * Busca o plano obrigatório (Básico) global da empresa.
+ * Lança erro se a empresa não tiver um plano básico configurado.
  */
-export async function buscarPlanoBasico(franquiaId: string): Promise<PlanoSeguro> {
+export async function buscarPlanoBasico(): Promise<PlanoSeguro> {
   const resultado = await query(
-    `SELECT id, franquia_id, nome, descricao, percentual, obrigatorio, ativo
+    `SELECT id, nome, descricao, percentual, obrigatorio, ativo
      FROM plano_seguro
-     WHERE franquia_id = $1
-       AND obrigatorio = TRUE
+     WHERE obrigatorio = TRUE
        AND ativo = TRUE
        AND deletado_em IS NULL
      LIMIT 1`,
-    [franquiaId],
   );
 
   if (!resultado.rows[0]) {
-    throw new Error(`Locadora ${franquiaId} não possui um plano de seguro básico configurado.`);
+    throw new Error('A empresa não possui um plano de seguro básico configurado.');
   }
 
   return { ...resultado.rows[0], percentual: Number(resultado.rows[0].percentual) };
 }
 
 /**
- * Busca um plano específico, validando que pertence à locadora informada.
- * Garante que um cliente não possa usar o plano de outra locadora.
+ * Busca um plano específico pelo ID.
  */
-export async function buscarPlanoPorId(planoId: string, franquiaId: string): Promise<PlanoSeguro | null> {
+export async function buscarPlanoPorId(planoId: string): Promise<PlanoSeguro | null> {
   const resultado = await query(
-    `SELECT id, franquia_id, nome, descricao, percentual, obrigatorio, ativo
+    `SELECT id, nome, descricao, percentual, obrigatorio, ativo
      FROM plano_seguro
      WHERE id = $1
-       AND franquia_id = $2
        AND ativo = TRUE
        AND deletado_em IS NULL`,
-    [planoId, franquiaId],
+    [planoId],
   );
 
   if (!resultado.rows[0]) return null;
@@ -104,20 +96,19 @@ export function calcularValorSeguro(percentual: number, valorAluguel: number): n
 }
 
 // ──────────────────────────────────────────────
-// CRUD (uso pela locadora)
+// CRUD (uso pelo gerente/admin)
 // ──────────────────────────────────────────────
 
 /**
- * Cria um novo plano de seguro para uma locadora.
+ * Cria um novo plano de seguro global da empresa.
  * A constraint do banco garante que não existirá mais de 1 plano obrigatório.
  */
 export async function criarPlano(params: CriarPlanoParams): Promise<PlanoSeguro> {
   const resultado = await query(
-    `INSERT INTO plano_seguro (franquia_id, nome, descricao, percentual, obrigatorio)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO plano_seguro (nome, descricao, percentual, obrigatorio)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
     [
-      params.franquiaId,
       params.nome,
       params.descricao ?? null,
       params.percentual,
@@ -134,7 +125,6 @@ export async function criarPlano(params: CriarPlanoParams): Promise<PlanoSeguro>
  */
 export async function atualizarPlano(
   planoId: string,
-  franquiaId: string,
   dados: { nome?: string; descricao?: string; percentual?: number },
 ): Promise<PlanoSeguro | null> {
   const campos: string[] = [];
@@ -147,12 +137,12 @@ export async function atualizarPlano(
 
   if (campos.length === 0) return null;
 
-  valores.push(planoId, franquiaId);
+  valores.push(planoId);
 
   const resultado = await query(
     `UPDATE plano_seguro
      SET ${campos.join(', ')}
-     WHERE id = $${indice++} AND franquia_id = $${indice} AND deletado_em IS NULL
+     WHERE id = $${indice} AND deletado_em IS NULL
      RETURNING *`,
     valores,
   );
@@ -165,11 +155,10 @@ export async function atualizarPlano(
  * Desativa (soft delete) um plano de seguro.
  * Planos obrigatórios não podem ser desativados — protege a integridade do fluxo.
  */
-export async function desativarPlano(planoId: string, franquiaId: string): Promise<{ sucesso: boolean; motivo?: string }> {
-  // Verifica se é o plano obrigatório
+export async function desativarPlano(planoId: string): Promise<{ sucesso: boolean; motivo?: string }> {
   const plano = await query(
-    `SELECT obrigatorio FROM plano_seguro WHERE id = $1 AND franquia_id = $2 AND deletado_em IS NULL`,
-    [planoId, franquiaId],
+    `SELECT obrigatorio FROM plano_seguro WHERE id = $1 AND deletado_em IS NULL`,
+    [planoId],
   );
 
   if (!plano.rows[0]) return { sucesso: false, motivo: 'Plano não encontrado.' };
@@ -178,8 +167,8 @@ export async function desativarPlano(planoId: string, franquiaId: string): Promi
   }
 
   await query(
-    `UPDATE plano_seguro SET ativo = FALSE, deletado_em = NOW() WHERE id = $1 AND franquia_id = $2`,
-    [planoId, franquiaId],
+    `UPDATE plano_seguro SET ativo = FALSE, deletado_em = NOW() WHERE id = $1`,
+    [planoId],
   );
 
   return { sucesso: true };

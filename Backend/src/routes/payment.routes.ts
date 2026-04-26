@@ -43,26 +43,23 @@ export async function iniciarPagamento(req: IncomingMessage, res: ServerResponse
     return;
   }
 
-  // Busca dados do cliente, modelo e franquia da filial
-  const [dadosCliente, dadosModelo, dadosFilial] = await Promise.all([
+  // Busca dados do cliente e modelo
+  const [dadosCliente, dadosModelo] = await Promise.all([
     query('SELECT c.nome_completo, u.email FROM cliente c JOIN usuario u ON u.id = c.usuario_id WHERE c.id = $1', [cliente_id]),
     query('SELECT m.nome, m.marca FROM modelo m WHERE m.id = $1', [modelo_id]),
-    query('SELECT franquia_id FROM filial WHERE id = $1', [filial_retirada_id]),
   ]);
 
-  if (!dadosCliente.rows[0] || !dadosModelo.rows[0] || !dadosFilial.rows[0]) {
+  if (!dadosCliente.rows[0] || !dadosModelo.rows[0]) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ erro: 'Cliente, modelo ou filial não encontrado.' }));
+    res.end(JSON.stringify({ erro: 'Cliente ou modelo não encontrado.' }));
     return;
   }
 
   const valorAluguel = await calcularValorTotal(modelo_id, filial_retirada_id, inicio, fim);
-  const franquiaId: string = dadosFilial.rows[0].franquia_id;
 
   const reservaCriada = await criarReservaPendente({
     clienteId: cliente_id,
     veiculoId,
-    franquiaId,
     filialRetiradaId: filial_retirada_id,
     filialDevolucaoId: filial_devolucao_id ?? filial_retirada_id,
     dataInicio: inicio,

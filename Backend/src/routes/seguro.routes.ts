@@ -1,6 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import {
-  listarPlanosDaLocadora,
+  listarPlanos,
   criarPlano,
   atualizarPlano,
   desativarPlano,
@@ -19,21 +19,12 @@ function lerCorpo(req: IncomingMessage): Promise<Record<string, any>> {
 }
 
 // ──────────────────────────────────────────────
-// GET /seguros?franquia_id=X
-// Lista todos os planos de uma locadora.
+// GET /seguros
+// Lista todos os planos de seguro ativos da empresa.
 // O plano Básico (obrigatório) sempre aparece primeiro.
 // ──────────────────────────────────────────────
-export async function listarSeguros(req: IncomingMessage, res: ServerResponse) {
-  const url = new URL(req.url ?? '', `http://${req.headers.host}`);
-  const franquiaId = url.searchParams.get('franquia_id');
-
-  if (!franquiaId) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ erro: 'Parâmetro obrigatório: franquia_id.' }));
-    return;
-  }
-
-  const planos = await listarPlanosDaLocadora(franquiaId);
+export async function listarSeguros(_req: IncomingMessage, res: ServerResponse) {
+  const planos = await listarPlanos();
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(planos));
@@ -41,16 +32,16 @@ export async function listarSeguros(req: IncomingMessage, res: ServerResponse) {
 
 // ──────────────────────────────────────────────
 // POST /seguros
-// Cria um novo plano de seguro para uma locadora.
-// Body: { franquia_id, nome, descricao?, percentual, obrigatorio? }
+// Cria um novo plano de seguro global da empresa.
+// Body: { nome, descricao?, percentual, obrigatorio? }
 // ──────────────────────────────────────────────
 export async function criarSeguro(req: IncomingMessage, res: ServerResponse) {
   const corpo = await lerCorpo(req);
-  const { franquia_id, nome, descricao, percentual, obrigatorio } = corpo;
+  const { nome, descricao, percentual, obrigatorio } = corpo;
 
-  if (!franquia_id || !nome || percentual === undefined) {
+  if (!nome || percentual === undefined) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ erro: 'Campos obrigatórios: franquia_id, nome, percentual.' }));
+    res.end(JSON.stringify({ erro: 'Campos obrigatórios: nome, percentual.' }));
     return;
   }
 
@@ -60,7 +51,7 @@ export async function criarSeguro(req: IncomingMessage, res: ServerResponse) {
     return;
   }
 
-  const plano = await criarPlano({ franquiaId: franquia_id, nome, descricao, percentual, obrigatorio });
+  const plano = await criarPlano({ nome, descricao, percentual, obrigatorio });
 
   res.writeHead(201, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(plano));
@@ -69,19 +60,13 @@ export async function criarSeguro(req: IncomingMessage, res: ServerResponse) {
 // ──────────────────────────────────────────────
 // PUT /seguros/:id
 // Atualiza nome, descrição ou percentual de um plano.
-// Body: { franquia_id, nome?, descricao?, percentual? }
+// Body: { nome?, descricao?, percentual? }
 // ──────────────────────────────────────────────
 export async function atualizarSeguro(req: IncomingMessage, res: ServerResponse, planoId: string) {
   const corpo = await lerCorpo(req);
-  const { franquia_id, nome, descricao, percentual } = corpo;
+  const { nome, descricao, percentual } = corpo;
 
-  if (!franquia_id) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ erro: 'Campo obrigatório: franquia_id.' }));
-    return;
-  }
-
-  const planoAtualizado = await atualizarPlano(planoId, franquia_id, { nome, descricao, percentual });
+  const planoAtualizado = await atualizarPlano(planoId, { nome, descricao, percentual });
 
   if (!planoAtualizado) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -96,20 +81,10 @@ export async function atualizarSeguro(req: IncomingMessage, res: ServerResponse,
 // ──────────────────────────────────────────────
 // DELETE /seguros/:id
 // Desativa (soft delete) um plano de seguro.
-// Query: ?franquia_id=X
 // Planos obrigatórios (Básico) não podem ser desativados.
 // ──────────────────────────────────────────────
 export async function desativarSeguro(req: IncomingMessage, res: ServerResponse, planoId: string) {
-  const url = new URL(req.url ?? '', `http://${req.headers.host}`);
-  const franquiaId = url.searchParams.get('franquia_id');
-
-  if (!franquiaId) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ erro: 'Parâmetro obrigatório: franquia_id.' }));
-    return;
-  }
-
-  const resultado = await desativarPlano(planoId, franquiaId);
+  const resultado = await desativarPlano(planoId);
 
   if (!resultado.sucesso) {
     res.writeHead(409, { 'Content-Type': 'application/json' });

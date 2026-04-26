@@ -1,17 +1,23 @@
 -- Extensões úteis
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- ──────────────────────────────────────────────
 -- USUÁRIO (autenticação central)
+-- tipo GERENTE: pode ser global (filial_id NULL em gerente)
+--               ou vinculado a uma filial (filial_id preenchido)
+-- ──────────────────────────────────────────────
 CREATE TABLE usuario (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     senha TEXT NOT NULL,
-    tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('CLIENTE', 'FRANQUIA', 'ADMIN')),
+    tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('CLIENTE', 'GERENTE', 'ADMIN')),
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deletado_em TIMESTAMP
 );
 
+-- ──────────────────────────────────────────────
 -- CLIENTE
+-- ──────────────────────────────────────────────
 CREATE TABLE cliente (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     usuario_id UUID UNIQUE REFERENCES usuario(id),
@@ -23,44 +29,12 @@ CREATE TABLE cliente (
     deletado_em TIMESTAMP
 );
 
--- FRANQUIA
-CREATE TABLE franquia (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    usuario_id UUID UNIQUE REFERENCES usuario(id),
-    nome VARCHAR(255) NOT NULL,
-    cnpj VARCHAR(18) UNIQUE NOT NULL,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    deletado_em TIMESTAMP
-);
-
--- PLANO DE SEGURO (definido por cada locadora parceira)
--- O plano Básico tem obrigatorio = TRUE e é sempre incluído na reserva
--- Constraint garante no máximo 1 plano obrigatório ativo por franquia
-CREATE TABLE plano_seguro (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    franquia_id UUID NOT NULL REFERENCES franquia(id),
-
-    nome VARCHAR(100) NOT NULL,       -- ex: 'Básico', 'Standard', 'Premium'
-    descricao TEXT,                    -- texto livre descrevendo as coberturas
-    percentual DECIMAL(5,2) NOT NULL   -- ex: 0.00 (básico), 5.00, 12.50
-        CHECK (percentual >= 0 AND percentual <= 100),
-    obrigatorio BOOLEAN DEFAULT FALSE,  -- TRUE = plano Básico, sempre incluso
-
-    ativo BOOLEAN DEFAULT TRUE,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    deletado_em TIMESTAMP
-);
-
--- Garante 1 único plano obrigatório ativo por franquia (requer btree_gist)
-CREATE EXTENSION IF NOT EXISTS btree_gist;
-CREATE UNIQUE INDEX unique_plano_obrigatorio_por_franquia
-    ON plano_seguro (franquia_id)
-    WHERE (obrigatorio = TRUE AND deletado_em IS NULL AND ativo = TRUE);
-
+-- ──────────────────────────────────────────────
 -- FILIAL
+-- Unidade física da empresa. Não há mais vínculo com franquia.
+-- ──────────────────────────────────────────────
 CREATE TABLE filial (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    franquia_id UUID REFERENCES franquia(id),
     nome VARCHAR(255),
     cep VARCHAR(10),
     uf VARCHAR(2),
@@ -74,14 +48,56 @@ CREATE TABLE filial (
     deletado_em TIMESTAMP
 );
 
+-- ──────────────────────────────────────────────
+-- GERENTE
+-- Substitui o perfil de "franquia". filial_id NULL = acesso global.
+-- ──────────────────────────────────────────────
+CREATE TABLE gerente (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    usuario_id UUID UNIQUE REFERENCES usuario(id),
+    nome_completo VARCHAR(255) NOT NULL,
+    filial_id UUID REFERENCES filial(id),  -- NULL = gerente global (todas as filiais)
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deletado_em TIMESTAMP
+);
+
+-- ──────────────────────────────────────────────
+-- PLANO DE SEGURO (global da empresa)
+-- O plano Básico tem obrigatorio = TRUE e é sempre incluído na reserva.
+-- Constraint garante no máximo 1 plano obrigatório ativo globalmente.
+-- ──────────────────────────────────────────────
+CREATE TABLE plano_seguro (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    nome VARCHAR(100) NOT NULL,       -- ex: 'Básico', 'Standard', 'Premium'
+    descricao TEXT,                    -- texto livre descrevendo as coberturas
+    percentual DECIMAL(5,2) NOT NULL   -- ex: 0.00 (básico), 5.00, 12.50
+        CHECK (percentual >= 0 AND percentual <= 100),
+    obrigatorio BOOLEAN DEFAULT FALSE,  -- TRUE = plano Básico, sempre incluso
+
+    ativo BOOLEAN DEFAULT TRUE,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deletado_em TIMESTAMP
+);
+
+-- Garante 1 único plano obrigatório ativo globalmente
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+CREATE UNIQUE INDEX unique_plano_obrigatorio_global
+    ON plano_seguro ((TRUE))
+    WHERE (obrigatorio = TRUE AND deletado_em IS NULL AND ativo = TRUE);
+
+-- ──────────────────────────────────────────────
 -- TIPO DE CARRO (categoria)
+-- ──────────────────────────────────────────────
 CREATE TABLE tipo_carro (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(50) NOT NULL,
     preco_base_diaria DECIMAL(10,2) NOT NULL
 );
 
+-- ──────────────────────────────────────────────
 -- MODELO
+-- ──────────────────────────────────────────────
 CREATE TABLE modelo (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
@@ -89,7 +105,9 @@ CREATE TABLE modelo (
     tipo_carro_id INT REFERENCES tipo_carro(id)
 );
 
--- VEÍCULO (carro real)
+-- ──────────────────────────────────────────────
+-- VEÍCULO (unidade física)
+-- ──────────────────────────────────────────────
 CREATE TABLE veiculo (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     modelo_id INT REFERENCES modelo(id),
@@ -102,7 +120,9 @@ CREATE TABLE veiculo (
     deletado_em TIMESTAMP
 );
 
+-- ──────────────────────────────────────────────
 -- RESERVA / ALUGUEL
+-- ──────────────────────────────────────────────
 CREATE TABLE reserva (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     cliente_id UUID REFERENCES cliente(id),
@@ -128,7 +148,7 @@ CREATE TABLE reserva (
     pagamento_em            TIMESTAMP,     -- Quando o pagamento foi confirmado
     expira_em               TIMESTAMP,     -- Expiração do PENDENTE_PAGAMENTO
 
-    -- Seguro contratado
+    -- Seguro contratado (plano global da empresa)
     plano_seguro_id UUID REFERENCES plano_seguro(id),
     valor_seguro    DECIMAL(10,2),          -- valor calculado e fixado no momento da reserva
 
@@ -136,7 +156,9 @@ CREATE TABLE reserva (
     deletado_em TIMESTAMP
 );
 
+-- ──────────────────────────────────────────────
 -- TABELA DE PREÇO DINÂMICO
+-- ──────────────────────────────────────────────
 CREATE TABLE tabela_preco (
     id SERIAL PRIMARY KEY,
     tipo_carro_id INT REFERENCES tipo_carro(id),
@@ -146,10 +168,12 @@ CREATE TABLE tabela_preco (
     valor_diaria DECIMAL(10,2) NOT NULL
 );
 
--- CONTROLE FINANCEIRO
+-- ──────────────────────────────────────────────
+-- CONTROLE FINANCEIRO (global; filial_id para rastreio por unidade)
+-- ──────────────────────────────────────────────
 CREATE TABLE transacao (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    filial_id UUID REFERENCES filial(id),
+    filial_id UUID REFERENCES filial(id),  -- NULL = transação corporativa
     tipo VARCHAR(20) CHECK (tipo IN ('ENTRADA', 'SAIDA')),
     valor DECIMAL(10,2),
     descricao TEXT,
@@ -157,9 +181,11 @@ CREATE TABLE transacao (
     deletado_em TIMESTAMP
 );
 
+-- ──────────────────────────────────────────────
 -- ÍNDICES (performance)
+-- ──────────────────────────────────────────────
 CREATE INDEX idx_veiculo_filial ON veiculo(filial_id);
 CREATE INDEX idx_reserva_veiculo ON reserva(veiculo_id);
 CREATE INDEX idx_reserva_cliente ON reserva(cliente_id);
 CREATE INDEX idx_reserva_periodo ON reserva(data_inicio, data_fim);
-CREATE INDEX idx_plano_seguro_franquia ON plano_seguro(franquia_id);
+CREATE INDEX idx_gerente_filial ON gerente(filial_id);

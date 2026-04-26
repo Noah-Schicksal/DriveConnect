@@ -97,7 +97,6 @@ export async function calcularValorTotal(
 interface CriarReservaParams {
   clienteId: string;
   veiculoId: string;
-  franquiaId: string;        // necessário para buscar o plano básico correto
   filialRetiradaId: string;
   filialDevolucaoId: string;
   dataInicio: Date;
@@ -107,7 +106,7 @@ interface CriarReservaParams {
   emailCliente: string;
   telefoneCliente?: string;
   descricaoModelo: string;
-  planoSeguroId?: string;    // opcional: se não informado, usa o plano básico
+  planoSeguroId?: string;    // opcional: se não informado, usa o plano básico da empresa
 }
 
 export interface ReservaCriada {
@@ -127,12 +126,12 @@ export async function criarReservaPendente(
 ): Promise<ReservaCriada> {
   const expiraEm = new Date(Date.now() + EXPIRACAO_MINUTOS * 60 * 1000);
 
-  // Resolve o plano de seguro: usa o escolhido pelo cliente ou o plano básico obrigatório
+  // Resolve o plano de seguro: usa o escolhido pelo cliente ou o plano básico global
   const plano = params.planoSeguroId
-    ? await buscarPlanoPorId(params.planoSeguroId, params.franquiaId)
+    ? await buscarPlanoPorId(params.planoSeguroId)
     : null;
 
-  const planoFinal = plano ?? await buscarPlanoBasico(params.franquiaId);
+  const planoFinal = plano ?? await buscarPlanoBasico();
   const valorSeguro = calcularValorSeguro(planoFinal.percentual, params.valorAluguel);
   const valorTotal = params.valorAluguel + valorSeguro;
 
@@ -237,7 +236,7 @@ export interface StatusRetirada {
 
 /**
  * Verifica em tempo real se o veículo de uma reserva está pronto para retirada.
- * Garantia B: chamada pela franquia no momento de entregar as chaves.
+ * Garantia B: chamada pelo gerente no momento de entregar as chaves.
  */
 export async function verificarDisponibilidadeRetirada(
   reservaId: string,
