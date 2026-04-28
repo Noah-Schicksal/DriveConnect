@@ -38,7 +38,10 @@ function lerCorpo(req: IncomingMessage): Promise<CorpoLido> {
     req.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
     req.on('end', () => {
       const raw = chunks.length ? Buffer.concat(chunks) : Buffer.from('{}');
-      try { resolve({ raw, json: JSON.parse(raw) }); }
+      try {
+        const rawText = raw.toString('utf8');
+        resolve({ raw, json: JSON.parse(rawText) });
+      }
       catch { reject(new Error('JSON inválido no corpo da requisição.')); }
     });
     req.on('error', reject);
