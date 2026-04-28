@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import { createServer, IncomingMessage, ServerResponse } from 'http';
+import { enforceHttps } from './middlewares/https.js';
+
 
 // Rotas de reserva
 import {
@@ -23,10 +25,22 @@ import {
   registrarGerente,
   listarTodosClientes,
   buscarCliente,
+  buscarMeuPerfil,
   editarCliente,
+  editarMeuPerfil,
   trocarSenha,
   deletarUsuario,
 } from './routes/usuario.routes.js';
+
+// Rotas de filial / gerente
+import {
+  listarTodasFiliais,
+  detalharFilial,
+  editarFilial,
+  listarTodosGerentes,
+  buscarMeuPerfilDeGerente,
+} from './routes/filial.routes.js';
+
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -34,6 +48,9 @@ const PORT = Number(process.env.PORT) || 3000;
 // Roteamento central (method + pathname)
 // ──────────────────────────────────────────────
 async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  // HTTPS enforcement — redireciona HTTP → HTTPS em produção
+  if (enforceHttps(req, res)) return;
+
   const url    = new URL(req.url ?? '/', `http://${req.headers.host}`);
   const path   = url.pathname;
   const method = req.method ?? 'GET';
@@ -43,6 +60,10 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
   if (method === 'POST' && path === '/usuarios/clientes')  return registrarCliente(req, res);
   if (method === 'POST' && path === '/usuarios/gerentes')  return registrarGerente(req, res);
   if (method === 'GET'  && path === '/usuarios/clientes')  return listarTodosClientes(req, res);
+
+  // /clientes/me deve vir ANTES de /clientes/:id para não ser capturado pelo regex
+  if (method === 'GET'  && path === '/usuarios/clientes/me') return buscarMeuPerfil(req, res);
+  if (method === 'PUT'  && path === '/usuarios/clientes/me') return editarMeuPerfil(req, res);
 
   const matchCliente = path.match(/^\/usuarios\/clientes\/([^/]+)$/);
   if (matchCliente) {
@@ -63,6 +84,20 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
   if (matchUsuario && method === 'DELETE') {
     const usuarioId = matchUsuario[1];
     if (usuarioId !== undefined) return deletarUsuario(req, res, usuarioId);
+  }
+
+  // ── Filiais / Gerentes ────────────────────────
+  if (method === 'GET'  && path === '/filiais')     return listarTodasFiliais(req, res);
+  if (method === 'GET'  && path === '/gerentes')    return listarTodosGerentes(req, res);
+  if (method === 'GET'  && path === '/gerentes/me') return buscarMeuPerfilDeGerente(req, res);
+
+  const matchFilial = path.match(/^\/filiais\/([^/]+)$/);
+  if (matchFilial) {
+    const filialId = matchFilial[1];
+    if (filialId !== undefined) {
+      if (method === 'GET') return detalharFilial(req, res, filialId);
+      if (method === 'PUT') return editarFilial(req, res, filialId);
+    }
   }
 
   // ── Reservas ─────────────────────────────────

@@ -221,6 +221,63 @@ export async function buscarClientePorId(clienteId: string): Promise<Cliente | n
   });
 }
 
+/** Busca o perfil do próprio cliente usando o usuarioId do caller. */
+export async function buscarMeuPerfilCliente(usuarioId: string): Promise<Cliente | null> {
+  const r = await query(
+    `SELECT c.id, c.usuario_id, c.nome_completo, c.cpf, c.rg, c.cnh, c.criado_em, c.deletado_em
+     FROM cliente c
+     JOIN usuario u ON u.id = c.usuario_id
+     WHERE c.usuario_id = $1 AND c.deletado_em IS NULL AND u.deletado_em IS NULL`,
+    [usuarioId],
+  );
+
+  const row = r.rows[0];
+  if (!row) return null;
+
+  return new Cliente({
+    id: row.id,
+    usuarioId: row.usuario_id,
+    nomeCompleto: row.nome_completo,
+    cpf: row.cpf,
+    rg: row.rg,
+    cnh: row.cnh,
+    criadoEm: row.criado_em,
+    deletadoEm: row.deletado_em,
+  });
+}
+
+interface AtualizarMeuPerfilParams {
+  nomeCompleto?: string;
+  rg?: string;
+  cnh?: string;
+}
+
+/** Atualiza o perfil do próprio cliente. Só permite alterar nome, rg e cnh. */
+export async function atualizarMeuPerfilCliente(
+  usuarioId: string,
+  params: AtualizarMeuPerfilParams,
+): Promise<Cliente | null> {
+  if (params.nomeCompleto) Cliente.validarNome(params.nomeCompleto);
+
+  const campos: string[] = [];
+  const valores: unknown[] = [];
+  let idx = 1;
+
+  if (params.nomeCompleto !== undefined) { campos.push(`nome_completo = $${idx++}`); valores.push(params.nomeCompleto); }
+  if (params.rg           !== undefined) { campos.push(`rg = $${idx++}`);            valores.push(params.rg); }
+  if (params.cnh          !== undefined) { campos.push(`cnh = $${idx++}`);           valores.push(params.cnh); }
+
+  if (campos.length === 0) return null;
+
+  valores.push(usuarioId);
+  await query(
+    `UPDATE cliente SET ${campos.join(', ')} WHERE usuario_id = $${idx} AND deletado_em IS NULL`,
+    valores as any[],
+  );
+
+  return buscarMeuPerfilCliente(usuarioId);
+}
+
 // ──────────────────────────────────────────────
 // ATUALIZAÇÃO
 // ──────────────────────────────────────────────
