@@ -50,6 +50,9 @@ import {
   deletar,
 } from './routes/veiculo.routes.js';
 
+// Rotas de WhatsApp
+import { receiveWebhook as receiveWebhookWhatsApp, verifyWebhook as verifyWebhookWhatsApp } from './routes/whatsapp.routes.js';
+
 const PORT = Number(process.env.PORT) || 3000;
 
 // ──────────────────────────────────────────────
@@ -62,6 +65,22 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
   const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
   const path = url.pathname;
   const method = req.method ?? 'GET';
+
+  // ── Healthcheck ───────────────────────────────
+  if (method === 'GET' && path === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, ts: new Date().toISOString() }));
+    return;
+  }
+
+  // ── WhatsApp webhook ──────────────────────────
+  if (path === '/whatsapp/webhook') {
+    if (method === 'GET') return verifyWebhookWhatsApp(req, res);
+    if (method === 'POST') return receiveWebhookWhatsApp(req, res);
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ erro: 'Método não permitido.' }));
+    return;
+  }
 
   // ── Usuários / Auth ──────────────────────────
   if (method === 'POST' && path === '/usuarios/login') return login(req, res);
