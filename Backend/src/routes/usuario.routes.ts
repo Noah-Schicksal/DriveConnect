@@ -8,7 +8,11 @@ import {
   atualizarCliente,
   alterarSenha,
   desativarUsuario,
+  buscarMeuPerfilCliente,
+  atualizarMeuPerfilCliente,
 } from '../services/usuario.service.js';
+import { requireCaller, requireTipo, requireOwnership } from '../middlewares/auth.js';
+
 
 function lerCorpo(req: IncomingMessage): Promise<Record<string, any>> {
   return new Promise((resolve, reject) => {
@@ -32,6 +36,8 @@ async function tratarErro(res: ServerResponse, err: unknown): Promise<void> {
   const status = mensagem.includes('inválid') || mensagem.includes('deve') ? 400
     : mensagem.includes('não encontrad') ? 404
     : mensagem.includes('Credenciais') ? 401
+    : mensagem.includes('Não autorizado') ? 401
+    : mensagem.includes('Sem permissão') ? 403
     : 500;
   responder(res, status, { erro: mensagem });
 }
@@ -100,10 +106,13 @@ export async function registrarGerente(req: IncomingMessage, res: ServerResponse
 
 // ──────────────────────────────────────────────
 // GET /usuarios/clientes
-// Lista todos os clientes ativos
+// Acesso: GERENTE, ADMIN
 // ──────────────────────────────────────────────
-export async function listarTodosClientes(_req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function listarTodosClientes(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
+    const caller = requireCaller(req);
+    requireTipo(caller, 'GERENTE', 'ADMIN');
+
     const clientes = await listarClientes();
     responder(res, 200, clientes);
   } catch (err) {
@@ -113,16 +122,15 @@ export async function listarTodosClientes(_req: IncomingMessage, res: ServerResp
 
 // ──────────────────────────────────────────────
 // GET /usuarios/clientes/:id
-// Retorna um cliente pelo ID
+// Acesso: GERENTE, ADMIN
 // ──────────────────────────────────────────────
 export async function buscarCliente(req: IncomingMessage, res: ServerResponse, clienteId: string): Promise<void> {
   try {
-    const cliente = await buscarClientePorId(clienteId);
+    const caller = requireCaller(req);
+    requireTipo(caller, 'GERENTE', 'ADMIN');
 
-    if (!cliente) {
-      responder(res, 404, { erro: 'Cliente não encontrado.' });
-      return;
-    }
+    const cliente = await buscarClientePorId(clienteId);
+    if (!cliente) { responder(res, 404, { erro: 'Cliente não encontrado.' }); return; }
 
     responder(res, 200, cliente);
   } catch (err) {
@@ -131,24 +139,38 @@ export async function buscarCliente(req: IncomingMessage, res: ServerResponse, c
 }
 
 // ──────────────────────────────────────────────
+// GET /usuarios/clientes/me
+// Acesso: CLIENTE (retorna apenas os próprios dados)
+// ──────────────────────────────────────────────
+export async function buscarMeuPerfil(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  try {
+    const caller = requireCaller(req);
+    requireTipo(caller, 'CLIENTE');
+
+    const perfil = await buscarMeuPerfilCliente(caller.usuarioId);
+    if (!perfil) { responder(res, 404, { erro: 'Perfil não encontrado.' }); return; }
+
+    responder(res, 200, perfil);
+  } catch (err) {
+    await tratarErro(res, err);
+  }
+}
+
+// ──────────────────────────────────────────────
 // PUT /usuarios/clientes/:id
+// Acesso: GERENTE, ADMIN
 // Body: { nome_completo?, rg?, cnh? }
 // ──────────────────────────────────────────────
 export async function editarCliente(req: IncomingMessage, res: ServerResponse, clienteId: string): Promise<void> {
   try {
+    const caller = requireCaller(req);
+    requireTipo(caller, 'GERENTE', 'ADMIN');
+
     const corpo = await lerCorpo(req);
     const { nome_completo, rg, cnh } = corpo;
 
-    const clienteAtualizado = await atualizarCliente(clienteId, {
-      nomeCompleto: nome_completo,
-      rg,
-      cnh,
-    });
-
-    if (!clienteAtualizado) {
-      responder(res, 400, { erro: 'Nenhum campo válido para atualizar.' });
-      return;
-    }
+    const clienteAtualizado = await atualizarCliente(clienteId, { nomeCompleto: nome_completo, rg, cnh });
+    if (!clienteAtualizado) { responder(res, 400, { erro: 'Nenhum campo válido para atualizar.' }); return; }
 
     responder(res, 200, clienteAtualizado);
   } catch (err) {
@@ -157,17 +179,39 @@ export async function editarCliente(req: IncomingMessage, res: ServerResponse, c
 }
 
 // ──────────────────────────────────────────────
+// PUT /usuarios/clientes/me
+// Acesso: CLIENTE (edita apenas os próprios dados)
+// Body: { nome_completo?, rg?, cnh? }
+// ──────────────────────────────────────────────
+export async function editarMeuPerfil(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  try {
+    const caller = requireCaller(req);
+    requireTipo(caller, 'CLIENTE');
+
+    const corpo = await lerCorpo(req);
+    const { nome_completo, rg, cnh } = corpo;
+
+    const atualizado = await atualizarMeuPerfilCliente(caller.usuarioId, { nomeCompleto: nome_completo, rg, cnh });
+    if (!atualizado) { responder(res, 400, { erro: 'Nenhum campo válido para atualizar.' }); return; }
+
+    responder(res, 200, atualizado);
+  } catch (err) {
+    await tratarErro(res, err);
+  }
+}
+
+// ──────────────────────────────────────────────
 // PATCH /usuarios/:id/senha
+// Acesso: o próprio usuário (ownership check)
 // Body: { nova_senha }
 // ──────────────────────────────────────────────
 export async function trocarSenha(req: IncomingMessage, res: ServerResponse, usuarioId: string): Promise<void> {
   try {
-    const { nova_senha } = await lerCorpo(req);
+    const caller = requireCaller(req);
+    requireOwnership(caller, usuarioId, 'ADMIN');
 
-    if (!nova_senha) {
-      responder(res, 400, { erro: 'Campo obrigatório: nova_senha.' });
-      return;
-    }
+    const { nova_senha } = await lerCorpo(req);
+    if (!nova_senha) { responder(res, 400, { erro: 'Campo obrigatório: nova_senha.' }); return; }
 
     await alterarSenha(usuarioId, nova_senha);
     responder(res, 200, { mensagem: 'Senha alterada com sucesso.' });
@@ -178,10 +222,13 @@ export async function trocarSenha(req: IncomingMessage, res: ServerResponse, usu
 
 // ──────────────────────────────────────────────
 // DELETE /usuarios/:id
-// Soft-delete do usuário e perfil associado
+// Acesso: ADMIN
 // ──────────────────────────────────────────────
 export async function deletarUsuario(req: IncomingMessage, res: ServerResponse, usuarioId: string): Promise<void> {
   try {
+    const caller = requireCaller(req);
+    requireTipo(caller, 'ADMIN');
+
     await desativarUsuario(usuarioId);
     responder(res, 200, { mensagem: 'Usuário desativado com sucesso.' });
   } catch (err) {
