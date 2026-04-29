@@ -89,6 +89,52 @@ export async function buscarFilialPorId(filialId: string): Promise<FilialDetalha
 }
 
 // ──────────────────────────────────────────────
+// FILIAIS — Criação (apenas ADMIN)
+// ──────────────────────────────────────────────
+
+interface CriarFilialParams {
+  nome: string;
+  cep?: string;
+  uf?: string;
+  cidade?: string;
+  bairro?: string;
+  rua?: string;
+  numero?: string;
+  complemento?: string;
+}
+
+/**
+ * Cria uma nova filial. Apenas ADMIN pode criar.
+ */
+async function _criarFilial(params: CriarFilialParams): Promise<FilialDetalhada> {
+  if (!params.nome || params.nome.trim().length < 2) {
+    throw new Error('Campo obrigatório inválido: nome deve ter ao menos 2 caracteres.');
+  }
+
+  const r = await query(
+    `INSERT INTO filial (nome, cep, uf, cidade, bairro, rua, numero, complemento)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING id`,
+    [
+      params.nome.trim(),
+      params.cep ?? null,
+      params.uf ?? null,
+      params.cidade ?? null,
+      params.bairro ?? null,
+      params.rua ?? null,
+      params.numero ?? null,
+      params.complemento ?? null,
+    ],
+  );
+
+  return _buscarFilialPorId(r.rows[0].id) as Promise<FilialDetalhada>;
+}
+
+export async function criarFilial(params: CriarFilialParams): Promise<FilialDetalhada> {
+  return _criarFilial(params);
+}
+
+// ──────────────────────────────────────────────
 // FILIAIS — Escrita (apenas gerente dono da filial ou ADMIN)
 // ──────────────────────────────────────────────
 
@@ -147,6 +193,47 @@ export async function atualizarFilial(
   params: AtualizarFilialParams,
 ): Promise<FilialDetalhada | null> {
   return _atualizarFilial(filialId, caller, params);
+}
+
+// ──────────────────────────────────────────────
+// FILIAIS — Soft delete (apenas ADMIN)
+// ──────────────────────────────────────────────
+
+/**
+ * Desativa (soft delete) uma filial.
+ * Rejeita se houver veículos ativos ou gerentes vinculados.
+ */
+async function _desativarFilial(filialId: string): Promise<boolean> {
+  const veiculosAtivos = await query(
+    `SELECT id FROM veiculo
+     WHERE filial_id = $1 AND deletado_em IS NULL LIMIT 1`,
+    [filialId],
+  );
+  if ((veiculosAtivos.rowCount ?? 0) > 0) {
+    throw new Error('Não é possível desativar: existem veículos ativos nesta filial.');
+  }
+
+  const gerentesVinculados = await query(
+    `SELECT id FROM gerente
+     WHERE filial_id = $1 AND deletado_em IS NULL LIMIT 1`,
+    [filialId],
+  );
+  if ((gerentesVinculados.rowCount ?? 0) > 0) {
+    throw new Error('Não é possível desativar: existem gerentes vinculados a esta filial.');
+  }
+
+  const r = await query(
+    `UPDATE filial
+     SET deletado_em = CURRENT_TIMESTAMP, ativo = FALSE
+     WHERE id = $1 AND deletado_em IS NULL
+     RETURNING id`,
+    [filialId],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+export async function desativarFilial(filialId: string): Promise<boolean> {
+  return _desativarFilial(filialId);
 }
 
 // ──────────────────────────────────────────────

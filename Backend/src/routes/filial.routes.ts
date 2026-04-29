@@ -2,7 +2,9 @@ import { IncomingMessage, ServerResponse } from 'http';
 import {
   listarFiliais,
   buscarFilialPorId,
+  criarFilial,
   atualizarFilial,
+  desativarFilial,
   listarGerentes,
   buscarMeuPerfilGerente,
 } from '../services/filial.service.js';
@@ -65,6 +67,60 @@ export async function detalharFilial(req: IncomingMessage, res: ServerResponse, 
     if (!filial) { responder(res, 404, { erro: 'Filial não encontrada.' }); return; }
 
     responder(res, 200, filial);
+  } catch (err) {
+    const { status, mensagem } = mapearErro(err);
+    responder(res, status, { erro: mensagem });
+  }
+}
+
+// ──────────────────────────────────────────────
+// POST /filiais
+// Body: { nome, cep?, uf?, cidade?, bairro?, rua?, numero?, complemento? }
+// Acesso: ADMIN
+// ──────────────────────────────────────────────
+export async function registrarFilial(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  try {
+    const caller = requireCaller(req);
+    requireTipo(caller, 'ADMIN');
+
+    const corpo = await lerCorpo(req);
+    const { nome, cep, uf, cidade, bairro, rua, numero, complemento } = corpo as Record<string, string | undefined>;
+
+    if (!nome) {
+      responder(res, 400, { erro: 'Campo obrigatório ausente: nome.' });
+      return;
+    }
+
+    const params: { nome: string; cep?: string; uf?: string; cidade?: string; bairro?: string; rua?: string; numero?: string; complemento?: string } = { nome };
+    if (cep)         params.cep = cep;
+    if (uf)          params.uf = uf;
+    if (cidade)      params.cidade = cidade;
+    if (bairro)      params.bairro = bairro;
+    if (rua)         params.rua = rua;
+    if (numero)      params.numero = numero;
+    if (complemento) params.complemento = complemento;
+
+    const filial = await criarFilial(params);
+    responder(res, 201, filial);
+  } catch (err) {
+    const { status, mensagem } = mapearErro(err);
+    responder(res, status, { erro: mensagem });
+  }
+}
+
+// ──────────────────────────────────────────────
+// DELETE /filiais/:id
+// Acesso: ADMIN — soft delete (rejeita se houver vínculos)
+// ──────────────────────────────────────────────
+export async function desativarFilialHandler(req: IncomingMessage, res: ServerResponse, filialId: string): Promise<void> {
+  try {
+    const caller = requireCaller(req);
+    requireTipo(caller, 'ADMIN');
+
+    const sucesso = await desativarFilial(filialId);
+    if (!sucesso) { responder(res, 404, { erro: 'Filial não encontrada.' }); return; }
+
+    responder(res, 200, { mensagem: 'Filial desativada com sucesso.' });
   } catch (err) {
     const { status, mensagem } = mapearErro(err);
     responder(res, status, { erro: mensagem });

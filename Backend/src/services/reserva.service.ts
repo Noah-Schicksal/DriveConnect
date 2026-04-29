@@ -23,7 +23,7 @@ export async function buscarVeiculoDisponivel(
     SELECT v.id
     FROM veiculo v
     WHERE v.modelo_id = $1
-      AND v.status = 'DISPONIVEL'
+      AND v.status IN ('DISPONIVEL', 'ALUGADO')
       AND v.deletado_em IS NULL
       AND NOT EXISTS (
         SELECT 1 FROM reserva r
@@ -31,6 +31,7 @@ export async function buscarVeiculoDisponivel(
           AND r.status IN ('PENDENTE_PAGAMENTO', 'RESERVADA', 'ATIVA')
           AND r.data_inicio < $3
           AND r.data_fim > $2
+          AND r.deletado_em IS NULL
       )
     LIMIT 1;
   `;
@@ -135,14 +136,22 @@ export async function criarReservaPendente(
   const valorSeguro = calcularValorSeguro(planoFinal.percentual, params.valorAluguel);
   const valorTotal = params.valorAluguel + valorSeguro;
 
-  // Cria a reserva pendente com seguro incluído
+  // Cria a reserva pendente com seguro incluído, garantindo atomicamente a não-sobreposição
   const sqlInsert = `
     INSERT INTO reserva (
       cliente_id, veiculo_id, filial_retirada_id, filial_devolucao_id,
       data_inicio, data_fim, valor_total, status, expira_em,
       plano_seguro_id, valor_seguro
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDENTE_PAGAMENTO', $8, $9, $10)
+    SELECT $1, $2, $3, $4, $5, $6, $7, 'PENDENTE_PAGAMENTO', $8, $9, $10
+    WHERE NOT EXISTS (
+      SELECT 1 FROM reserva r
+      WHERE r.veiculo_id = $2
+        AND r.status IN ('PENDENTE_PAGAMENTO', 'RESERVADA', 'ATIVA')
+        AND r.data_inicio < $6
+        AND r.data_fim > $5
+        AND r.deletado_em IS NULL
+    )
     RETURNING id;
   `;
 
@@ -158,6 +167,10 @@ export async function criarReservaPendente(
     planoFinal.id,
     valorSeguro,
   ]);
+
+  if (resultado.rowCount === 0) {
+    throw new Error('O veículo selecionado não está disponível para o período solicitado (conflito de datas).');
+  }
 
   const reservaId: string = resultado.rows[0].id;
 
