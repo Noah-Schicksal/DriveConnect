@@ -3,12 +3,20 @@ import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { enforceHttps } from './middlewares/https.js';
 
 
-// Rotas de reserva
+// Rotas de reserva (disponibilidade, retirada, devolução, criação)
 import {
   checarDisponibilidade,
+  registrarReserva,
   confirmarRetirada,
   confirmarDevolucao,
 } from './routes/reserva.routes.js';
+
+// Rotas de reserva (consulta e cancelamento)
+import {
+  listarTodasReservas,
+  detalharReserva,
+  cancelarReservaHandler,
+} from './routes/reservaConsulta.routes.js';
 
 // Rotas de seguro
 import {
@@ -17,6 +25,15 @@ import {
   atualizarSeguro,
   desativarSeguro,
 } from './routes/seguro.routes.js';
+
+// Rotas de tabela de preço
+import {
+  listarTabelas,
+  buscarTabela,
+  registrarTabela,
+  editarTabela,
+  removerTabela,
+} from './routes/tabelaPreco.routes.js';
 
 // Rotas de usuário
 import {
@@ -36,10 +53,31 @@ import {
 import {
   listarTodasFiliais,
   detalharFilial,
+  registrarFilial,
   editarFilial,
+  desativarFilialHandler,
   listarTodosGerentes,
   buscarMeuPerfilDeGerente,
 } from './routes/filial.routes.js';
+
+// Rotas de tipos de carro
+import {
+  listarTipos,
+  buscarTipo,
+  registrarTipo,
+  editarTipo,
+  removerTipo,
+} from './routes/tipoCarro.routes.js';
+
+// Rotas de modelos
+import {
+  listar as listarModelos,
+  listarDisponiveis as listarModelosDisponiveis,
+  buscar as buscarModelo,
+  registrar as registrarModelo,
+  editar as editarModelo,
+  remover as removerModelo,
+} from './routes/modelo.routes.js';
 
 // Rotas de veículos
 import {
@@ -115,6 +153,7 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
 
   // ── Filiais / Gerentes ────────────────────────
   if (method === 'GET'  && path === '/filiais')     return listarTodasFiliais(req, res);
+  if (method === 'POST' && path === '/filiais')     return registrarFilial(req, res);
   if (method === 'GET'  && path === '/gerentes')    return listarTodosGerentes(req, res);
   if (method === 'GET'  && path === '/gerentes/me') return buscarMeuPerfilDeGerente(req, res);
 
@@ -122,14 +161,47 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
   if (matchFilial) {
     const filialId = matchFilial[1];
     if (filialId !== undefined) {
-      if (method === 'GET') return detalharFilial(req, res, filialId);
-      if (method === 'PUT') return editarFilial(req, res, filialId);
+      if (method === 'GET')    return detalharFilial(req, res, filialId);
+      if (method === 'PUT')    return editarFilial(req, res, filialId);
+      if (method === 'DELETE') return desativarFilialHandler(req, res, filialId);
+    }
+  }
+
+  // ── Tipos de Carro ────────────────────────────
+  if (method === 'GET'  && path === '/tipos-carro') return listarTipos(req, res);
+  if (method === 'POST' && path === '/tipos-carro') return registrarTipo(req, res);
+
+  const matchTipo = path.match(/^\/tipos-carro\/([^/]+)$/);
+  if (matchTipo) {
+    const tipoId = matchTipo[1];
+    if (tipoId !== undefined) {
+      if (method === 'GET')    return buscarTipo(req, res, tipoId);
+      if (method === 'PUT')    return editarTipo(req, res, tipoId);
+      if (method === 'DELETE') return removerTipo(req, res, tipoId);
+    }
+  }
+
+  // ── Modelos ───────────────────────────────────
+  if (method === 'GET'  && path === '/modelos/disponiveis') return listarModelosDisponiveis(req, res);
+  if (method === 'GET'  && path === '/modelos') return listarModelos(req, res);
+  if (method === 'POST' && path === '/modelos') return registrarModelo(req, res);
+
+  const matchModelo = path.match(/^\/modelos\/([^/]+)$/);
+  if (matchModelo) {
+    const modeloId = matchModelo[1];
+    if (modeloId !== undefined) {
+      if (method === 'GET')    return buscarModelo(req, res, modeloId);
+      if (method === 'PUT')    return editarModelo(req, res, modeloId);
+      if (method === 'DELETE') return removerModelo(req, res, modeloId);
     }
   }
 
   // ── Reservas ─────────────────────────────────
-  if (method === 'GET' && path === '/reservas/disponibilidade') return checarDisponibilidade(req, res);
+  if (method === 'GET'  && path === '/reservas/disponibilidade') return checarDisponibilidade(req, res);
+  if (method === 'POST' && path === '/reservas') return registrarReserva(req, res);
+  if (method === 'GET'  && path === '/reservas') return listarTodasReservas(req, res);
 
+  // Rotas com sufixo fixo devem vir ANTES do regex /:id
   const matchRetirada = path.match(/^\/reservas\/([^/]+)\/retirada$/);
   if (matchRetirada && method === 'POST') {
     const reservaId = matchRetirada[1];
@@ -142,16 +214,42 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
     if (reservaId !== undefined) return confirmarDevolucao(req, res, reservaId);
   }
 
+  const matchCancelar = path.match(/^\/reservas\/([^/]+)\/cancelar$/);
+  if (matchCancelar && method === 'POST') {
+    const reservaId = matchCancelar[1];
+    if (reservaId !== undefined) return cancelarReservaHandler(req, res, reservaId);
+  }
+
+  const matchReserva = path.match(/^\/reservas\/([^/]+)$/);
+  if (matchReserva && method === 'GET') {
+    const reservaId = matchReserva[1];
+    if (reservaId !== undefined) return detalharReserva(req, res, reservaId);
+  }
+
   // ── Seguros ───────────────────────────────────
-  if (method === 'GET' && path === '/seguros') return listarSeguros(req, res);
+  if (method === 'GET'  && path === '/seguros') return listarSeguros(req, res);
   if (method === 'POST' && path === '/seguros') return criarSeguro(req, res);
 
   const matchSeguro = path.match(/^\/seguros\/([^/]+)$/);
   if (matchSeguro) {
     const planoId = matchSeguro[1];
     if (planoId !== undefined) {
-      if (method === 'PUT') return atualizarSeguro(req, res, planoId);
+      if (method === 'PUT')    return atualizarSeguro(req, res, planoId);
       if (method === 'DELETE') return desativarSeguro(req, res, planoId);
+    }
+  }
+
+  // ── Tabelas de Preço ──────────────────────────
+  if (method === 'GET'  && path === '/tabelas-preco') return listarTabelas(req, res);
+  if (method === 'POST' && path === '/tabelas-preco') return registrarTabela(req, res);
+
+  const matchTabela = path.match(/^\/tabelas-preco\/([^/]+)$/);
+  if (matchTabela) {
+    const tabelaId = matchTabela[1];
+    if (tabelaId !== undefined) {
+      if (method === 'GET')    return buscarTabela(req, res, tabelaId);
+      if (method === 'PUT')    return editarTabela(req, res, tabelaId);
+      if (method === 'DELETE') return removerTabela(req, res, tabelaId);
     }
   }
 

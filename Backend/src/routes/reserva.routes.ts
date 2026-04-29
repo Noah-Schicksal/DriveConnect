@@ -4,7 +4,36 @@ import {
   buscarVeiculoDisponivel,
   calcularValorTotal,
   verificarDisponibilidadeRetirada,
+  criarReservaPendente,
 } from '../services/reserva.service.js';
+import { requireCaller, requireTipo } from '../middlewares/auth.js';
+
+function lerCorpo(req: IncomingMessage): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+      let dados = '';
+      req.on('data', (chunk) => (dados += chunk));
+      req.on('end', () => {
+          try { resolve(JSON.parse(dados || '{}')); }
+          catch { reject(new Error('JSON inválido.')); }
+      });
+      req.on('error', reject);
+  });
+}
+
+function responder(res: ServerResponse, status: number, corpo: unknown): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(corpo));
+}
+
+function mapearErro(err: unknown): { status: number; mensagem: string } {
+  const mensagem = err instanceof Error ? err.message : 'Erro interno.';
+  const status = mensagem.includes('inválid') || mensagem.includes('obrigatório') || mensagem.includes('ausente') ? 400
+      : mensagem.includes('não encontrad') ? 404
+      : mensagem.includes('Não autorizado') ? 401
+      : mensagem.includes('Sem permissão') ? 403
+      : 500;
+  return { status, mensagem };
+}
 
 // ──────────────────────────────────────────────
 // GET /reservas/disponibilidade
@@ -36,7 +65,74 @@ export async function checarDisponibilidade(req: IncomingMessage, res: ServerRes
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ disponivel, preco_total: precoTotal }));
+  res.end(JSON.stringify({ disponivel, preco_total: precoTotal, veiculo_id: veiculoId }));
+}
+
+// ──────────────────────────────────────────────
+// POST /reservas
+// Body: { veiculo_id, filial_retirada_id, filial_devolucao_id, data_inicio, data_fim, plano_seguro_id }
+// Acesso: CLIENTE
+// ──────────────────────────────────────────────
+export async function registrarReserva(req: IncomingMessage, res: ServerResponse) {
+  try {
+    const caller = requireCaller(req);
+    requireTipo(caller, 'CLIENTE');
+
+    const corpo = await lerCorpo(req) as Record<string, string>;
+
+    const { veiculo_id, filial_retirada_id, filial_devolucao_id, data_inicio, data_fim, plano_seguro_id } = corpo;
+
+    if (!veiculo_id || !filial_retirada_id || !filial_devolucao_id || !data_inicio || !data_fim) {
+      responder(res, 400, { erro: 'Parâmetros obrigatórios ausentes.' });
+      return;
+    }
+
+    // Busca dados complementares do cliente e veículo
+    const clienteResult = await query('SELECT nome_completo, email, telefone FROM cliente WHERE id = $1', [caller.usuarioId]);
+    if (!clienteResult.rows[0]) throw new Error('Cliente não encontrado.');
+    const cliente = clienteResult.rows[0];
+
+    const veiculoResult = await query(`
+      SELECT v.modelo_id, m.nome || ' ' || m.marca AS descricao_modelo
+      FROM veiculo v
+      JOIN modelo m ON m.id = v.modelo_id
+      WHERE v.id = $1
+    `, [veiculo_id]);
+    if (!veiculoResult.rows[0]) throw new Error('Veículo não encontrado.');
+    const veiculo = veiculoResult.rows[0];
+
+    // Calcula valor aluguel
+    const valorAluguel = await calcularValorTotal(
+      veiculo.modelo_id,
+      filial_retirada_id,
+      new Date(data_inicio),
+      new Date(data_fim)
+    );
+
+    // Cria a reserva chamando o service que integra com InfinitePay
+    const paramsReserva: any = {
+      clienteId: caller.usuarioId,
+      veiculoId: veiculo_id,
+      filialRetiradaId: filial_retirada_id,
+      filialDevolucaoId: filial_devolucao_id,
+      dataInicio: new Date(data_inicio),
+      dataFim: new Date(data_fim),
+      valorAluguel,
+      nomeCliente: cliente.nome_completo,
+      emailCliente: cliente.email,
+      descricaoModelo: veiculo.descricao_modelo,
+    };
+
+    if (cliente.telefone) paramsReserva.telefoneCliente = cliente.telefone;
+    if (plano_seguro_id) paramsReserva.planoSeguroId = plano_seguro_id;
+
+    const reserva = await criarReservaPendente(paramsReserva);
+
+    responder(res, 201, reserva);
+  } catch (err) {
+    const { status, mensagem } = mapearErro(err);
+    responder(res, status, { erro: mensagem });
+  }
 }
 
 // ──────────────────────────────────────────────
