@@ -1,105 +1,209 @@
 import 'dotenv/config';
 import { createServer, IncomingMessage, ServerResponse } from 'http';
-import { URL } from 'url';
-import { listarSeguros, criarSeguro, atualizarSeguro, desativarSeguro } from './routes/seguro.routes.js';
-import { checarDisponibilidade, confirmarRetirada, confirmarDevolucao } from './routes/reserva.routes.js';
-import { iniciarPagamento, receberWebhook as receberWebhookPagamento, statusPagamento } from './routes/payment.routes.js';
-import { verifyWebhook, receiveWebhook } from './routes/whatsapp.routes.js';
+import { enforceHttps } from './middlewares/https.js';
 
-function sendJson(res: ServerResponse, status: number, payload: unknown): void {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(payload));
-}
 
-function notFound(res: ServerResponse): void {
-  sendJson(res, 404, { erro: 'Rota não encontrada.' });
-}
+// Rotas de reserva
+import {
+  checarDisponibilidade,
+  confirmarRetirada,
+  confirmarDevolucao,
+} from './routes/reserva.routes.js';
 
-function methodNotAllowed(res: ServerResponse): void {
-  sendJson(res, 405, { erro: 'Método não permitido.' });
-}
+// Rotas de seguro
+import {
+  listarSeguros,
+  criarSeguro,
+  atualizarSeguro,
+  desativarSeguro,
+} from './routes/seguro.routes.js';
 
-function handler(req: IncomingMessage, res: ServerResponse): void {
-  const method = req.method || 'GET';
-  const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+// Rotas de usuário
+import {
+  login,
+  registrarCliente,
+  registrarGerente,
+  listarTodosClientes,
+  buscarCliente,
+  buscarMeuPerfil,
+  editarCliente,
+  editarMeuPerfil,
+  trocarSenha,
+  deletarUsuario,
+} from './routes/usuario.routes.js';
+
+// Rotas de filial / gerente
+import {
+  listarTodasFiliais,
+  detalharFilial,
+  editarFilial,
+  listarTodosGerentes,
+  buscarMeuPerfilDeGerente,
+} from './routes/filial.routes.js';
+
+// Rotas de veículos
+import {
+  registrarVeiculo,
+  listar,
+  buscar,
+  atualizar,
+  deletar,
+} from './routes/veiculo.routes.js';
+
+// Rotas de WhatsApp
+import { receiveWebhook as receiveWebhookWhatsApp, verifyWebhook as verifyWebhookWhatsApp } from './routes/whatsapp.routes.js';
+
+const PORT = Number(process.env.PORT) || 3000;
+
+// ──────────────────────────────────────────────
+// Roteamento central (method + pathname)
+// ──────────────────────────────────────────────
+async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  // HTTPS enforcement — redireciona HTTP → HTTPS em produção
+  if (enforceHttps(req, res)) return;
+
+  const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
   const path = url.pathname;
+  const method = req.method ?? 'GET';
 
-  // Healthcheck
+  // ── Healthcheck ───────────────────────────────
   if (method === 'GET' && path === '/health') {
-    sendJson(res, 200, { ok: true, ts: new Date().toISOString() });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, ts: new Date().toISOString() }));
     return;
   }
 
-  // WhatsApp webhook
+  // ── WhatsApp webhook ──────────────────────────
   if (path === '/whatsapp/webhook') {
-    if (method === 'GET') return void verifyWebhook(req, res);
-    if (method === 'POST') return void receiveWebhook(req, res);
-    return methodNotAllowed(res);
+    if (method === 'GET') return verifyWebhookWhatsApp(req, res);
+    if (method === 'POST') return receiveWebhookWhatsApp(req, res);
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ erro: 'Método não permitido.' }));
+    return;
   }
 
-  // Seguros
-  if (path === '/seguros') {
-    if (method === 'GET') return void listarSeguros(req, res);
-    if (method === 'POST') return void criarSeguro(req, res);
-    return methodNotAllowed(res);
+  // ── Usuários / Auth ──────────────────────────
+  if (method === 'POST' && path === '/usuarios/login') return login(req, res);
+  if (method === 'POST' && path === '/usuarios/clientes') return registrarCliente(req, res);
+  if (method === 'POST' && path === '/usuarios/gerentes') return registrarGerente(req, res);
+  if (method === 'GET' && path === '/usuarios/clientes') return listarTodosClientes(req, res);
+
+  // /clientes/me deve vir ANTES de /clientes/:id para não ser capturado pelo regex
+  if (method === 'GET'  && path === '/usuarios/clientes/me') return buscarMeuPerfil(req, res);
+  if (method === 'PUT'  && path === '/usuarios/clientes/me') return editarMeuPerfil(req, res);
+
+  const matchCliente = path.match(/^\/usuarios\/clientes\/([^/]+)$/);
+  if (matchCliente) {
+    const clienteId = matchCliente[1];
+    if (clienteId !== undefined) {
+      if (method === 'GET') return buscarCliente(req, res, clienteId);
+      if (method === 'PUT') return editarCliente(req, res, clienteId);
+    }
   }
 
-  const seguroMatch = path.match(/^\/seguros\/([^/]+)$/);
-  if (seguroMatch) {
-    const planoId = seguroMatch[1] ?? '';
-    if (method === 'PUT') return void atualizarSeguro(req, res, planoId);
-    if (method === 'DELETE') return void desativarSeguro(req, res, planoId);
-    return methodNotAllowed(res);
+  const matchSenha = path.match(/^\/usuarios\/([^/]+)\/senha$/);
+  if (matchSenha && method === 'PATCH') {
+    const usuarioId = matchSenha[1];
+    if (usuarioId !== undefined) return trocarSenha(req, res, usuarioId);
   }
 
-  // Reservas
-  if (method === 'GET' && path === '/reservas/disponibilidade') return void checarDisponibilidade(req, res);
-
-  const retiradaMatch = path.match(/^\/reservas\/([^/]+)\/retirada$/);
-  if (retiradaMatch) {
-    const reservaId = retiradaMatch[1] ?? '';
-    if (method === 'POST') return void confirmarRetirada(req, res, reservaId);
-    return methodNotAllowed(res);
+  const matchUsuario = path.match(/^\/usuarios\/([^/]+)$/);
+  if (matchUsuario && method === 'DELETE') {
+    const usuarioId = matchUsuario[1];
+    if (usuarioId !== undefined) return deletarUsuario(req, res, usuarioId);
   }
 
-  const devolucaoMatch = path.match(/^\/reservas\/([^/]+)\/devolucao$/);
-  if (devolucaoMatch) {
-    const reservaId = devolucaoMatch[1] ?? '';
-    if (method === 'POST') return void confirmarDevolucao(req, res, reservaId);
-    return methodNotAllowed(res);
+  // ── Filiais / Gerentes ────────────────────────
+  if (method === 'GET'  && path === '/filiais')     return listarTodasFiliais(req, res);
+  if (method === 'GET'  && path === '/gerentes')    return listarTodosGerentes(req, res);
+  if (method === 'GET'  && path === '/gerentes/me') return buscarMeuPerfilDeGerente(req, res);
+
+  const matchFilial = path.match(/^\/filiais\/([^/]+)$/);
+  if (matchFilial) {
+    const filialId = matchFilial[1];
+    if (filialId !== undefined) {
+      if (method === 'GET') return detalharFilial(req, res, filialId);
+      if (method === 'PUT') return editarFilial(req, res, filialId);
+    }
   }
 
-  // Pagamento
-  if (path === '/pagamento/iniciar') {
-    if (method === 'POST') return void iniciarPagamento(req, res);
-    return methodNotAllowed(res);
+  // ── Reservas ─────────────────────────────────
+  if (method === 'GET' && path === '/reservas/disponibilidade') return checarDisponibilidade(req, res);
+
+  const matchRetirada = path.match(/^\/reservas\/([^/]+)\/retirada$/);
+  if (matchRetirada && method === 'POST') {
+    const reservaId = matchRetirada[1];
+    if (reservaId !== undefined) return confirmarRetirada(req, res, reservaId);
   }
 
-  if (path === '/pagamento/webhook') {
-    if (method === 'POST') return void receberWebhookPagamento(req, res);
-    return methodNotAllowed(res);
+  const matchDevolucao = path.match(/^\/reservas\/([^/]+)\/devolucao$/);
+  if (matchDevolucao && method === 'POST') {
+    const reservaId = matchDevolucao[1];
+    if (reservaId !== undefined) return confirmarDevolucao(req, res, reservaId);
   }
 
-  const pagamentoStatusMatch = path.match(/^\/pagamento\/status\/([^/]+)$/);
-  if (pagamentoStatusMatch) {
-    const reservaId = pagamentoStatusMatch[1] ?? '';
-    if (method === 'GET') return void statusPagamento(req, res, reservaId);
-    return methodNotAllowed(res);
+  // ── Seguros ───────────────────────────────────
+  if (method === 'GET' && path === '/seguros') return listarSeguros(req, res);
+  if (method === 'POST' && path === '/seguros') return criarSeguro(req, res);
+
+  const matchSeguro = path.match(/^\/seguros\/([^/]+)$/);
+  if (matchSeguro) {
+    const planoId = matchSeguro[1];
+    if (planoId !== undefined) {
+      if (method === 'PUT') return atualizarSeguro(req, res, planoId);
+      if (method === 'DELETE') return desativarSeguro(req, res, planoId);
+    }
   }
 
-  notFound(res);
+  // ── Veículos ──────────────────────────────────
+  if (method === 'POST' && path === '/veiculos') return registrarVeiculo(req, res);
+  if (method === 'GET' && path === '/veiculos') return listar(req, res);
+
+  const matchVeiculo = path.match(/^\/veiculos\/([^/]+)$/);
+  if (matchVeiculo) {
+    const veiculoId = matchVeiculo[1];
+    if (veiculoId !== undefined) {
+      if (method === 'GET') return buscar(req, res, veiculoId);
+      if (method === 'PUT') return atualizar(req, res, veiculoId);
+      if (method === 'DELETE') return deletar(req, res, veiculoId);
+    }
+  }
+
+  // ── Servidor de Arquivos Estáticos (Uploads) ────
+  if (method === 'GET' && path.startsWith('/uploads/')) {
+    const filePath = require('path').join(process.cwd(), path);
+    const fs = require('fs');
+    if (fs.existsSync(filePath)) {
+      const ext = require('path').extname(filePath).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+      };
+      res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+      const readStream = fs.createReadStream(filePath);
+      readStream.pipe(res);
+      return;
+    }
+  }
+
+  // ── 404 ───────────────────────────────────────
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ erro: 'Rota não encontrada.' }));
 }
 
-const PORT = Number.parseInt(process.env.PORT || '3000', 10);
-if (!Number.isFinite(PORT) || PORT <= 0) throw new Error(`Invalid PORT: ${process.env.PORT}`);
-
-createServer((req, res) => {
-  Promise.resolve(handler(req, res)).catch((err) => {
-    console.error('Erro não tratado:', err);
-    if (!res.headersSent) sendJson(res, 500, { erro: 'Erro interno.' });
-    else res.end();
-  });
-}).listen(PORT, () => {
-  console.log(`Backend listening on port ${PORT}`);
+const server = createServer(async (req, res) => {
+  try {
+    await roteador(req, res);
+  } catch (err) {
+    const mensagem = err instanceof Error ? err.message : 'Erro interno do servidor.';
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ erro: mensagem }));
+  }
 });
 
+server.listen(PORT, () => {
+  console.log(`✅ DriveConnect API rodando na porta ${PORT}`);
+});
