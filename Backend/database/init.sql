@@ -116,6 +116,7 @@ CREATE TABLE veiculo (
     ano INT NOT NULL,
     cor VARCHAR(50),
     status VARCHAR(20) NOT NULL CHECK (status IN ('DISPONIVEL', 'ALUGADO', 'MANUTENCAO')),
+    imagem_url TEXT,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deletado_em TIMESTAMP
 );

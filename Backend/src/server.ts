@@ -41,6 +41,14 @@ import {
   buscarMeuPerfilDeGerente,
 } from './routes/filial.routes.js';
 
+// Rotas de veículos
+import {
+  registrarVeiculo,
+  listar,
+  buscar,
+  atualizar,
+  deletar,
+} from './routes/veiculo.routes.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -51,15 +59,15 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
   // HTTPS enforcement — redireciona HTTP → HTTPS em produção
   if (enforceHttps(req, res)) return;
 
-  const url    = new URL(req.url ?? '/', `http://${req.headers.host}`);
-  const path   = url.pathname;
+  const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
+  const path = url.pathname;
   const method = req.method ?? 'GET';
 
   // ── Usuários / Auth ──────────────────────────
-  if (method === 'POST' && path === '/usuarios/login')     return login(req, res);
-  if (method === 'POST' && path === '/usuarios/clientes')  return registrarCliente(req, res);
-  if (method === 'POST' && path === '/usuarios/gerentes')  return registrarGerente(req, res);
-  if (method === 'GET'  && path === '/usuarios/clientes')  return listarTodosClientes(req, res);
+  if (method === 'POST' && path === '/usuarios/login') return login(req, res);
+  if (method === 'POST' && path === '/usuarios/clientes') return registrarCliente(req, res);
+  if (method === 'POST' && path === '/usuarios/gerentes') return registrarGerente(req, res);
+  if (method === 'GET' && path === '/usuarios/clientes') return listarTodosClientes(req, res);
 
   // /clientes/me deve vir ANTES de /clientes/:id para não ser capturado pelo regex
   if (method === 'GET'  && path === '/usuarios/clientes/me') return buscarMeuPerfil(req, res);
@@ -116,15 +124,49 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
   }
 
   // ── Seguros ───────────────────────────────────
-  if (method === 'GET'  && path === '/seguros') return listarSeguros(req, res);
+  if (method === 'GET' && path === '/seguros') return listarSeguros(req, res);
   if (method === 'POST' && path === '/seguros') return criarSeguro(req, res);
 
   const matchSeguro = path.match(/^\/seguros\/([^/]+)$/);
   if (matchSeguro) {
     const planoId = matchSeguro[1];
     if (planoId !== undefined) {
-      if (method === 'PUT')    return atualizarSeguro(req, res, planoId);
+      if (method === 'PUT') return atualizarSeguro(req, res, planoId);
       if (method === 'DELETE') return desativarSeguro(req, res, planoId);
+    }
+  }
+
+  // ── Veículos ──────────────────────────────────
+  if (method === 'POST' && path === '/veiculos') return registrarVeiculo(req, res);
+  if (method === 'GET' && path === '/veiculos') return listar(req, res);
+
+  const matchVeiculo = path.match(/^\/veiculos\/([^/]+)$/);
+  if (matchVeiculo) {
+    const veiculoId = matchVeiculo[1];
+    if (veiculoId !== undefined) {
+      if (method === 'GET') return buscar(req, res, veiculoId);
+      if (method === 'PUT') return atualizar(req, res, veiculoId);
+      if (method === 'DELETE') return deletar(req, res, veiculoId);
+    }
+  }
+
+  // ── Servidor de Arquivos Estáticos (Uploads) ────
+  if (method === 'GET' && path.startsWith('/uploads/')) {
+    const filePath = require('path').join(process.cwd(), path);
+    const fs = require('fs');
+    if (fs.existsSync(filePath)) {
+      const ext = require('path').extname(filePath).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+      };
+      res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+      const readStream = fs.createReadStream(filePath);
+      readStream.pipe(res);
+      return;
     }
   }
 
