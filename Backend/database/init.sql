@@ -11,6 +11,8 @@ CREATE TABLE usuario (
     email VARCHAR(255) UNIQUE NOT NULL,
     senha TEXT NOT NULL,
     tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('CLIENTE', 'GERENTE', 'ADMIN')),
+    reset_token VARCHAR(255),
+    reset_token_expira_em TIMESTAMP,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deletado_em TIMESTAMP
 );
@@ -135,6 +137,7 @@ CREATE TABLE reserva (
     data_retirada_real TIMESTAMP,
     data_devolucao_real TIMESTAMP,
     valor_total DECIMAL(10,2),
+    valor_adicional DECIMAL(10,2) DEFAULT 0.00,
     -- PENDENTE_PAGAMENTO: aguardando pagamento (bloqueio temporário do veículo)
     -- EXPIRADA: pagamento não concluído no tempo limite, veículo liberado
     status VARCHAR(25) NOT NULL CHECK (status IN ('PENDENTE_PAGAMENTO', 'RESERVADA', 'ATIVA', 'FINALIZADA', 'CANCELADA', 'EXPIRADA')),
@@ -189,4 +192,15 @@ CREATE INDEX idx_veiculo_filial ON veiculo(filial_id);
 CREATE INDEX idx_reserva_veiculo ON reserva(veiculo_id);
 CREATE INDEX idx_reserva_cliente ON reserva(cliente_id);
 CREATE INDEX idx_reserva_periodo ON reserva(data_inicio, data_fim);
+CREATE TABLE veiculo_imagem (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    veiculo_id UUID NOT NULL REFERENCES veiculo(id) ON DELETE CASCADE,
+    filename VARCHAR(255) NOT NULL,
+    is_principal BOOLEAN DEFAULT FALSE,
+    ordem INT DEFAULT 0,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_veiculo_imagem_veiculo ON veiculo_imagem(veiculo_id);
+
 CREATE INDEX idx_gerente_filial ON gerente(filial_id);

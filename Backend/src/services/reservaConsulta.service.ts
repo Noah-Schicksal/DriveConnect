@@ -21,6 +21,7 @@ export interface ReservaResumo {
     dataRetiradaReal: Date | null;
     dataDevolucaoReal: Date | null;
     valorTotal: number | null;
+    valorAdicional: number | null;
     status: string;
     metodoPagamento: string | null;
     pagamentoEm: Date | null;
@@ -70,6 +71,7 @@ const SQL_SELECT_RESERVA = `
         r.data_retirada_real,
         r.data_devolucao_real,
         r.valor_total,
+        r.valor_adicional,
         r.status,
         r.metodo_pagamento,
         r.pagamento_em,
@@ -103,6 +105,7 @@ function _mapearLinha(row: Record<string, unknown>): ReservaResumo {
         dataRetiradaReal: row.data_retirada_real as Date | null,
         dataDevolucaoReal: row.data_devolucao_real as Date | null,
         valorTotal: row.valor_total !== null ? Number(row.valor_total) : null,
+        valorAdicional: row.valor_adicional !== null ? Number(row.valor_adicional) : null,
         status: row.status as string,
         metodoPagamento: row.metodo_pagamento as string | null,
         pagamentoEm: row.pagamento_em as Date | null,
@@ -153,15 +156,23 @@ async function _buscarReservaPorId(id: string, caller: Caller): Promise<ReservaR
 async function _cancelarReserva(reservaId: string, caller: Caller): Promise<void> {
     // Carrega a reserva sem filtro de filial para dar erro correto
     const reservaRes = await query(
-        `SELECT r.id, r.status, r.veiculo_id,
+        `SELECT r.id, r.status, r.veiculo_id, r.cliente_id, c.usuario_id AS cliente_usuario_id,
                 r.filial_retirada_id, r.filial_devolucao_id
          FROM reserva r
+         JOIN cliente c ON c.id = r.cliente_id
          WHERE r.id = $1 AND r.deletado_em IS NULL`,
         [reservaId],
     );
 
     const reserva = reservaRes.rows[0];
     if (!reserva) throw new Error('Reserva não encontrada.');
+
+    // Enforce para clientes (só podem cancelar as próprias reservas)
+    if (caller.tipo === 'CLIENTE') {
+        if (reserva.cliente_usuario_id !== caller.usuarioId) {
+            throw new Error('Sem permissão: esta reserva não pertence a você.');
+        }
+    }
 
     // Enforce de filial para gerentes
     if (

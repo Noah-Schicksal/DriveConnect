@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { query } from '../db/index.js';
 import { gerarLinkPagamento } from './payment.service.js';
 import { buscarPlanoBasico, buscarPlanoPorId, calcularValorSeguro } from './seguro.service.js';
+import type { Caller } from '../middlewares/auth.js';
 
 const EXPIRACAO_MINUTOS = Number(process.env.PAGAMENTO_EXPIRACAO_MINUTOS) || 15;
 
@@ -236,6 +237,97 @@ export async function confirmarReserva(dados: DadosWebhook): Promise<void> {
     dados.receipt_url,
     dados.order_nsu, // order_nsu = reserva.id
   ]);
+}
+
+// ──────────────────────────────────────────────
+// ESTENDER RESERVA
+// ──────────────────────────────────────────────
+
+/**
+ * Estende uma reserva para uma nova data_fim.
+ */
+export async function estenderReserva(
+  reservaId: string,
+  novaDataFim: Date,
+  caller: Caller
+): Promise<void> {
+  const reservaRes = await query(
+    `SELECT r.*, v.modelo_id, c.usuario_id AS cliente_usuario_id
+     FROM reserva r
+     JOIN veiculo v ON v.id = r.veiculo_id
+     JOIN cliente c ON c.id = r.cliente_id
+     WHERE r.id = $1 AND r.deletado_em IS NULL`,
+    [reservaId]
+  );
+  
+  const reserva = reservaRes.rows[0];
+  if (!reserva) throw new Error('Reserva não encontrada.');
+
+  // Enforce para clientes
+  if (caller.tipo === 'CLIENTE' && reserva.cliente_usuario_id !== caller.usuarioId) {
+    throw new Error('Sem permissão: esta reserva não pertence a você.');
+  }
+
+  // Enforce para gerentes
+  if (
+    caller.tipo === 'GERENTE' &&
+    caller.filialId !== null &&
+    reserva.filial_retirada_id !== caller.filialId &&
+    reserva.filial_devolucao_id !== caller.filialId
+  ) {
+    throw new Error('Sem permissão: esta reserva não pertence à sua filial.');
+  }
+
+  if (reserva.status !== 'ATIVA' && reserva.status !== 'RESERVADA') {
+    throw new Error('Apenas reservas ativas ou confirmadas podem ser estendidas.');
+  }
+
+  if (novaDataFim <= new Date(reserva.data_fim)) {
+    throw new Error('A nova data final deve ser posterior à data final atual.');
+  }
+
+  // Verifica se o veículo está disponível para o NOVO período sem contar a própria reserva
+  const conflitoRes = await query(
+    `SELECT 1 FROM reserva
+     WHERE veiculo_id = $1
+       AND status IN ('PENDENTE_PAGAMENTO', 'RESERVADA', 'ATIVA')
+       AND data_inicio < $3
+       AND data_fim > $2
+       AND id != $4
+       AND deletado_em IS NULL
+     LIMIT 1`,
+    [reserva.veiculo_id, reserva.data_inicio, novaDataFim, reserva.id]
+  );
+
+  if ((conflitoRes.rowCount ?? 0) > 0) {
+    throw new Error('O veículo não está disponível para o período estendido (já existe outra reserva em conflito).');
+  }
+
+  // Calcula apenas o valor dos dias adicionais
+  const valorBaseDiasExtras = await calcularValorTotal(
+    reserva.modelo_id,
+    reserva.filial_retirada_id,
+    new Date(reserva.data_fim), // começa a cobrar a partir do fim original
+    novaDataFim
+  );
+
+  const planoFinal = reserva.plano_seguro_id 
+    ? await buscarPlanoPorId(reserva.plano_seguro_id)
+    : await buscarPlanoBasico();
+    
+  // Verifica se o plano existe
+  if (!planoFinal) throw new Error('Plano de seguro original não encontrado.');
+
+  const seguroDiasExtras = calcularValorSeguro(planoFinal.percentual, valorBaseDiasExtras);
+  const custoExtraTotal = valorBaseDiasExtras + seguroDiasExtras;
+
+  // Atualiza a data fim e acumula a dívida no valor_adicional (mantendo valor_total original intacto)
+  await query(
+    `UPDATE reserva 
+     SET data_fim = $1, valor_adicional = COALESCE(valor_adicional, 0) + $2
+     WHERE id = $3`,
+    [novaDataFim, custoExtraTotal, reserva.id]
+  );
 }
 
 // ──────────────────────────────────────────────

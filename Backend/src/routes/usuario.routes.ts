@@ -10,6 +10,8 @@ import {
   desativarUsuario,
   buscarMeuPerfilCliente,
   atualizarMeuPerfilCliente,
+  esqueciSenha,
+  redefinirSenhaComToken,
 } from '../services/usuario.service.js';
 import { requireCaller, requireTipo, requireOwnership } from '../middlewares/auth.js';
 
@@ -40,6 +42,50 @@ async function tratarErro(res: ServerResponse, err: unknown): Promise<void> {
     : mensagem.includes('Sem permissão') ? 403
     : 500;
   responder(res, status, { erro: mensagem });
+}
+
+// ──────────────────────────────────────────────
+// POST /usuarios/esqueci-senha
+// Body: { email }
+// ──────────────────────────────────────────────
+export async function solicitarRecuperacaoSenha(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  try {
+    const { email } = await lerCorpo(req);
+    if (!email) {
+      responder(res, 400, { erro: 'Campo obrigatório: email.' });
+      return;
+    }
+
+    const token = await esqueciSenha(email);
+    // IMPORTANTE: Em produção, enviaríamos e-mail aqui e não retornaríamos o token na response.
+    // Retornando para facilitar testes locais.
+    if (token) {
+      responder(res, 200, { mensagem: 'Instruções enviadas para o e-mail.', token_debug: token });
+    } else {
+      responder(res, 200, { mensagem: 'Instruções enviadas para o e-mail.' });
+    }
+  } catch (err) {
+    await tratarErro(res, err);
+  }
+}
+
+// ──────────────────────────────────────────────
+// POST /usuarios/redefinir-senha
+// Body: { token, nova_senha }
+// ──────────────────────────────────────────────
+export async function redefinirSenhaToken(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  try {
+    const { token, nova_senha } = await lerCorpo(req);
+    if (!token || !nova_senha) {
+      responder(res, 400, { erro: 'Campos obrigatórios: token, nova_senha.' });
+      return;
+    }
+
+    await redefinirSenhaComToken(token, nova_senha);
+    responder(res, 200, { mensagem: 'Senha redefinida com sucesso. Faça login.' });
+  } catch (err) {
+    await tratarErro(res, err);
+  }
 }
 
 // ──────────────────────────────────────────────

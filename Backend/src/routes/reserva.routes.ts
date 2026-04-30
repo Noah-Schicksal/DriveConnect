@@ -5,6 +5,7 @@ import {
   calcularValorTotal,
   verificarDisponibilidadeRetirada,
   criarReservaPendente,
+  estenderReserva,
 } from '../services/reserva.service.js';
 import { requireCaller, requireTipo } from '../middlewares/auth.js';
 
@@ -129,6 +130,30 @@ export async function registrarReserva(req: IncomingMessage, res: ServerResponse
     const reserva = await criarReservaPendente(paramsReserva);
 
     responder(res, 201, reserva);
+  } catch (err) {
+    const { status, mensagem } = mapearErro(err);
+    responder(res, status, { erro: mensagem });
+  }
+}
+
+// ──────────────────────────────────────────────
+// POST /reservas/:id/estender
+// Estende uma reserva ativa ou reservada para uma nova data_fim.
+// Acesso: CLIENTE, GERENTE, ADMIN
+// ──────────────────────────────────────────────
+export async function estenderReservaHandler(req: IncomingMessage, res: ServerResponse, reservaId: string) {
+  try {
+    const caller = requireCaller(req);
+    const corpo = await lerCorpo(req) as Record<string, string>;
+    const { nova_data_fim } = corpo;
+
+    if (!nova_data_fim) {
+      responder(res, 400, { erro: 'Parâmetro obrigatório: nova_data_fim.' });
+      return;
+    }
+
+    await estenderReserva(reservaId, new Date(nova_data_fim), caller);
+    responder(res, 200, { mensagem: 'Reserva estendida com sucesso.' });
   } catch (err) {
     const { status, mensagem } = mapearErro(err);
     responder(res, status, { erro: mensagem });

@@ -20,9 +20,10 @@ export async function criarVeiculo(dados: Veiculo): Promise<Veiculo> {
     return result.rows[0];
 }
 
-export async function listarVeiculos(filialId?: string): Promise<Veiculo[]> {
+export async function listarVeiculos(filialId?: string): Promise<any[]> {
     let q = `
-    SELECT v.*, m.nome as modelo_nome, m.marca as modelo_marca
+    SELECT v.*, m.nome as modelo_nome, m.marca as modelo_marca,
+           (SELECT filename FROM veiculo_imagem WHERE veiculo_id = v.id ORDER BY is_principal DESC, ordem ASC LIMIT 1) as capa_url
     FROM veiculo v
     LEFT JOIN modelo m ON v.modelo_id = m.id
     WHERE v.deletado_em IS NULL
@@ -36,10 +37,27 @@ export async function listarVeiculos(filialId?: string): Promise<Veiculo[]> {
     return result.rows;
 }
 
-export async function buscarVeiculoPorId(id: string): Promise<Veiculo | null> {
+export async function buscarVeiculoPorId(id: string): Promise<any | null> {
     const q = `SELECT * FROM veiculo WHERE id = $1 AND deletado_em IS NULL`;
     const result = await query(q, [id]);
-    return result.rows[0] || null;
+    const veiculo = result.rows[0];
+    if (!veiculo) return null;
+
+    const qImagens = `SELECT * FROM veiculo_imagem WHERE veiculo_id = $1 ORDER BY is_principal DESC, ordem ASC`;
+    const imagens = await query(qImagens, [id]);
+    veiculo.imagens = imagens.rows;
+
+    return veiculo;
+}
+
+export async function adicionarImagemVeiculo(veiculoId: string, filename: string, isPrincipal: boolean = false): Promise<void> {
+    if (isPrincipal) {
+        await query(`UPDATE veiculo_imagem SET is_principal = FALSE WHERE veiculo_id = $1`, [veiculoId]);
+    }
+    await query(`
+        INSERT INTO veiculo_imagem (veiculo_id, filename, is_principal)
+        VALUES ($1, $2, $3)
+    `, [veiculoId, filename, isPrincipal]);
 }
 
 export async function atualizarVeiculo(id: string, dados: Partial<Veiculo>): Promise<Veiculo | null> {

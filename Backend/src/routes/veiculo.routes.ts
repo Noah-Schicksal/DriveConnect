@@ -153,6 +153,31 @@ export async function atualizar(req: IncomingMessage, res: ServerResponse, id: s
     }
 }
 
+export async function adicionarImagem(req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
+    try {
+        if (!isMultipart(req)) {
+            responder(res, 400, { erro: 'Requisição deve ser multipart/form-data.' });
+            return;
+        }
+
+        const uploadResult = await processarUpload(req);
+        const { caminhoImagem, campos } = uploadResult;
+
+        if (!caminhoImagem) {
+            responder(res, 400, { erro: 'Nenhuma imagem enviada.' });
+            return;
+        }
+
+        const isPrincipal = campos.is_principal === 'true' || campos.is_principal === true;
+        const { adicionarImagemVeiculo } = await import('../services/veiculo.service.js');
+        await adicionarImagemVeiculo(id, caminhoImagem, isPrincipal);
+
+        responder(res, 201, { mensagem: 'Imagem adicionada com sucesso.', filename: caminhoImagem });
+    } catch (err) {
+        await tratarErro(res, err);
+    }
+}
+
 // ──────────────────────────────────────────────
 // DELETE /veiculos/:id
 // ──────────────────────────────────────────────

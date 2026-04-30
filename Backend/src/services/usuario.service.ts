@@ -5,6 +5,8 @@ import type { TipoUsuario } from '../entities/Usuario.js';
 import { Cliente } from '../entities/Cliente.js';
 import { Gerente } from '../entities/Gerente.js';
 
+import crypto from 'crypto';
+
 // ──────────────────────────────────────────────
 // AUTENTICAÇÃO
 // ──────────────────────────────────────────────
@@ -322,6 +324,56 @@ export async function alterarSenha(usuarioId: string, novaSenha: string): Promis
   await query(
     `UPDATE usuario SET senha = $1 WHERE id = $2 AND deletado_em IS NULL`,
     [novoHash, usuarioId],
+  );
+}
+
+// ──────────────────────────────────────────────
+// RECUPERAÇÃO DE SENHA
+// ──────────────────────────────────────────────
+
+export async function esqueciSenha(email: string): Promise<string | null> {
+  // 1. Busca o usuário
+  const r = await query(`SELECT id FROM usuario WHERE email = $1 AND deletado_em IS NULL`, [email]);
+  const user = r.rows[0];
+  if (!user) return null; // Não retorna erro para não expor quem tem conta
+
+  // 2. Gera token e expiração (1 hora)
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  const expiraEm = new Date(Date.now() + 60 * 60 * 1000);
+
+  // 3. Salva no banco
+  await query(
+    `UPDATE usuario SET reset_token = $1, reset_token_expira_em = $2 WHERE id = $3`,
+    [resetToken, expiraEm, user.id]
+  );
+
+  return resetToken;
+}
+
+export async function redefinirSenhaComToken(token: string, novaSenha: string): Promise<void> {
+  Usuario.validarSenha(novaSenha);
+
+  // 1. Busca usuário pelo token
+  const r = await query(
+    `SELECT id, reset_token_expira_em FROM usuario WHERE reset_token = $1 AND deletado_em IS NULL`,
+    [token]
+  );
+  const user = r.rows[0];
+
+  if (!user) {
+    throw new Error('Token inválido ou expirado.');
+  }
+
+  // 2. Verifica se expirou
+  if (new Date() > new Date(user.reset_token_expira_em)) {
+    throw new Error('O token de recuperação expirou. Solicite um novo.');
+  }
+
+  // 3. Atualiza a senha e invalida o token
+  const novoHash = await gerarHash(novaSenha);
+  await query(
+    `UPDATE usuario SET senha = $1, reset_token = NULL, reset_token_expira_em = NULL WHERE id = $2`,
+    [novoHash, user.id]
   );
 }
 
