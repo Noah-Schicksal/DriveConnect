@@ -83,12 +83,12 @@ export async function detalharReserva(req: IncomingMessage, res: ServerResponse,
 // POST /reservas/:id/cancelar
 // Cancela uma reserva RESERVADA ou PENDENTE_PAGAMENTO.
 // Libera o veículo automaticamente se estava RESERVADA.
-// Acesso: GERENTE (só filial própria) | ADMIN
+// Acesso: CLIENTE (própria), GERENTE (só filial própria) | ADMIN
 // ──────────────────────────────────────────────
 export async function cancelarReservaHandler(req: IncomingMessage, res: ServerResponse, reservaId: string): Promise<void> {
     try {
         const caller = requireCaller(req);
-        requireTipo(caller, 'GERENTE', 'ADMIN');
+        // Sem requireTipo aqui, pois todos os perfis podem acessar (regras validadas no service)
 
         await cancelarReserva(reservaId, caller);
         responder(res, 200, { mensagem: 'Reserva cancelada com sucesso.' });

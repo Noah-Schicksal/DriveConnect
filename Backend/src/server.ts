@@ -9,7 +9,28 @@ import {
   registrarReserva,
   confirmarRetirada,
   confirmarDevolucao,
+  estenderReservaHandler,
 } from './routes/reserva.routes.js';
+
+// Rotas de relatórios / dashboards
+import {
+  faturamentoHandler,
+  ocupacaoHandler,
+  operacaoHandler,
+} from './routes/relatorio.routes.js';
+
+// Rotas financeiras
+import {
+  estornoHandler,
+  cobrancaExtraHandler,
+} from './routes/financeiro.routes.js';
+
+// Rotas de Pagamento (InfinitePay)
+import {
+  iniciarPagamento,
+  receberWebhook as receberWebhookPagamento,
+  statusPagamento,
+} from './routes/payment.routes.js';
 
 // Rotas de reserva (consulta e cancelamento)
 import {
@@ -37,6 +58,8 @@ import {
 
 // Rotas de usuário
 import {
+  solicitarRecuperacaoSenha,
+  redefinirSenhaToken,
   login,
   registrarCliente,
   registrarGerente,
@@ -100,9 +123,28 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
   // HTTPS enforcement — redireciona HTTP → HTTPS em produção
   if (enforceHttps(req, res)) return;
 
+  // ── Configuração de CORS ──────────────────────
+  const corsOrigin = process.env.CORS_ORIGIN || '*';
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
-  const path = url.pathname;
+  let path = url.pathname;
   const method = req.method ?? 'GET';
+
+  // ── Lógica de Base Path Dinâmico ──────────────
+  const basePath = process.env.API_BASE_PATH;
+  if (basePath && path.startsWith(basePath)) {
+    path = path.slice(basePath.length);
+    if (path === '') path = '/';
+  }
 
   // ── Healthcheck ───────────────────────────────
   if (method === 'GET' && path === '/health') {
@@ -111,7 +153,12 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
     return;
   }
 
-  // ── WhatsApp webhook ──────────────────────────
+  // ── Relatórios / Dashboards ──────────────────
+  if (method === 'GET' && path === '/relatorios/faturamento') return faturamentoHandler(req, res);
+  if (method === 'GET' && path === '/relatorios/ocupacao') return ocupacaoHandler(req, res);
+  if (method === 'GET' && path === '/relatorios/operacao') return operacaoHandler(req, res);
+
+  // ── Webhooks Públicos (Sem API Key) ───────────
   if (path === '/whatsapp/webhook') {
     if (method === 'GET') return verifyWebhookWhatsApp(req, res);
     if (method === 'POST') return receiveWebhookWhatsApp(req, res);
@@ -120,7 +167,27 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
     return;
   }
 
+  if (path === '/pagamento/webhook') {
+    if (method === 'POST') return receberWebhookPagamento(req, res);
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ erro: 'Método não permitido.' }));
+    return;
+  }
+
+  // ── Proteção Global por API Key ───────────────
+  // Ignora validação para chamadas OPTIONS (preflight de CORS) se for implementado no futuro
+  if (method !== 'OPTIONS') {
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey || apiKey !== process.env.PUBLIC_API_KEY) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ erro: 'Acesso negado: API Key inválida ou ausente.' }));
+      return;
+    }
+  }
+
   // ── Usuários / Auth ──────────────────────────
+  if (method === 'POST' && path === '/usuarios/esqueci-senha') return solicitarRecuperacaoSenha(req, res);
+  if (method === 'POST' && path === '/usuarios/redefinir-senha') return redefinirSenhaToken(req, res);
   if (method === 'POST' && path === '/usuarios/login') return login(req, res);
   if (method === 'POST' && path === '/usuarios/clientes') return registrarCliente(req, res);
   if (method === 'POST' && path === '/usuarios/gerentes') return registrarGerente(req, res);
@@ -202,6 +269,12 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
   if (method === 'GET'  && path === '/reservas') return listarTodasReservas(req, res);
 
   // Rotas com sufixo fixo devem vir ANTES do regex /:id
+  const matchEstender = path.match(/^\/reservas\/([^/]+)\/estender$/);
+  if (matchEstender && method === 'POST') {
+    const reservaId = matchEstender[1];
+    if (reservaId !== undefined) return estenderReservaHandler(req, res, reservaId);
+  }
+
   const matchRetirada = path.match(/^\/reservas\/([^/]+)\/retirada$/);
   if (matchRetirada && method === 'POST') {
     const reservaId = matchRetirada[1];
@@ -253,9 +326,51 @@ async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void
     }
   }
 
+  // ── Financeiro e Pagamentos ───────────────────
+  if (method === 'POST' && path === '/pagamento/iniciar') return iniciarPagamento(req, res);
+
+  const matchStatusPagamento = path.match(/^\/pagamento\/status\/([^/]+)$/);
+  if (method === 'GET' && matchStatusPagamento && matchStatusPagamento[1]) {
+    return statusPagamento(req, res, matchStatusPagamento[1]);
+  }
+
+  const matchEstorno = path.match(/^\/pagamentos\/([^/]+)\/estorno$/);
+  if (method === 'POST' && matchEstorno && matchEstorno[1]) {
+    return estornoHandler(req, res, matchEstorno[1]);
+  }
+
+  const matchCobranca = path.match(/^\/reservas\/([^/]+)\/cobranca-extra$/);
+  if (method === 'POST' && matchCobranca && matchCobranca[1]) {
+    return cobrancaExtraHandler(req, res, matchCobranca[1]);
+  }
+
+  // ── Storage (Imagens de Veículos) ─────────────
+  if (method === 'GET' && path.startsWith('/storage/carros/')) {
+    const filename = path.replace('/storage/carros/', '');
+    const { lerArquivoSeguro } = await import('./services/storage.service.js');
+    try {
+      const stream = lerArquivoSeguro(filename);
+      const ext = filename.split('.').pop()?.toLowerCase();
+      const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'public, max-age=86400' });
+      stream.pipe(res);
+      return;
+    } catch (err: any) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ erro: err.message }));
+      return;
+    }
+  }
+
   // ── Veículos ──────────────────────────────────
   if (method === 'POST' && path === '/veiculos') return registrarVeiculo(req, res);
   if (method === 'GET' && path === '/veiculos') return listar(req, res);
+
+  const matchImagem = path.match(/^\/veiculos\/([^/]+)\/imagens$/);
+  if (matchImagem && matchImagem[1] && method === 'POST') {
+    const { adicionarImagem } = await import('./routes/veiculo.routes.js');
+    return adicionarImagem(req, res, matchImagem[1]);
+  }
 
   const matchVeiculo = path.match(/^\/veiculos\/([^/]+)$/);
   if (matchVeiculo) {

@@ -1,0 +1,213 @@
+openapi: 3.0.0
+info:
+  title: DriveConnect API
+  description: API completa para o sistema de gestão de locadoras de veículos DriveConnect.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Servidor de Desenvolvimento
+  - url: https://api.seudominio.com.br
+    description: Servidor de Produção
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Erro:
+      type: object
+      properties:
+        erro:
+          type: string
+          example: "Mensagem de erro descritiva."
+    Reserva:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cliente_id:
+          type: string
+          format: uuid
+        veiculo_id:
+          type: string
+          format: uuid
+        data_inicio:
+          type: string
+          format: date-time
+        data_fim:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [PENDENTE, CONFIRMADA, ATIVA, FINALIZADA, CANCELADA]
+        valor_total:
+          type: number
+security:
+  - ApiKeyAuth: []
+tags:
+  - name: Health
+    description: Status da API
+  - name: Auth & Usuários
+    description: Gestão de clientes, gerentes e autenticação
+  - name: Veículos & Frota
+    description: Gerenciamento de veículos, modelos e tipos
+  - name: Reservas
+    description: Ciclo de vida das locações
+  - name: Pagamentos & Financeiro
+    description: Integração InfinitePay e estornos
+  - name: Relatórios
+    description: Dashboards de faturamento e ocupação
+  - name: Configurações
+    description: Filiais, Seguros e Tabelas de Preço
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Verifica o status da API
+      security: []
+      responses:
+        '200':
+          description: API Operacional
+  /usuarios/login:
+    post:
+      tags: [Auth & Usuários]
+      summary: Autenticação de Usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                senha:
+                  type: string
+      responses:
+        '200':
+          description: Sucesso (retorna o JWT token e dados do usuário)
+        '401':
+          description: Credenciais inválidas
+  /pagamento/iniciar:
+    post:
+      tags: [Pagamentos & Financeiro]
+      summary: Gera link de checkout para uma reserva
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                modelo_id:
+                  type: string
+                filial_retirada_id:
+                  type: string
+                filial_devolucao_id:
+                  type: string
+                data_inicio:
+                  type: string
+                  format: date-time
+                data_fim:
+                  type: string
+                  format: date-time
+                cliente_id:
+                  type: string
+                plano_seguro_id:
+                  type: string
+      responses:
+        '201':
+          description: Reserva pendente criada com sucesso
+  /reservas/disponibilidade:
+    get:
+      tags: [Reservas]
+      summary: Checa se há modelos disponíveis em um período
+      parameters:
+        - name: modeloId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: dataInicio
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: dataFim
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Retorna true ou false
+  /reservas:
+    get:
+      tags: [Reservas]
+      summary: Lista todas as reservas (para gerentes)
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de reservas
+  /veiculos:
+    get:
+      tags: [Veículos & Frota]
+      summary: Lista todos os veículos da frota
+      responses:
+        '200':
+          description: Lista de veículos
+    post:
+      tags: [Veículos & Frota]
+      summary: Registra um novo veículo (Apenas Gerentes)
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Veículo criado
+  /pagamento/webhook:
+    post:
+      tags: [Pagamentos & Financeiro]
+      summary: Webhook da InfinitePay (Não requer autenticação API Key)
+      security: []
+      responses:
+        '200':
+          description: Sucesso
+  /storage/carros/{filename}:
+    get:
+      tags: [Veículos & Frota]
+      summary: Recupera a imagem de um veículo
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Arquivo de imagem (PNG/JPG/WEBP)
+        '403':
+          description: API Key inválida
+  /relatorios/faturamento:
+    get:
+      tags: [Relatórios]
+      summary: Exibe o dashboard de faturamento por filial
+      security:
+        - ApiKeyAuth: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Dados financeiros consolidados
