@@ -8,6 +8,10 @@ global.fetch = mockFetch as any;
 // Mock dependencies
 jest.unstable_mockModule('../../../src/db/index.js', () => ({
   query: jest.fn(),
+  getClient: jest.fn().mockResolvedValue({
+    query: jest.fn(),
+    release: jest.fn(),
+  }),
 }));
 
 jest.unstable_mockModule('../../../src/ai/rag.js', () => ({
