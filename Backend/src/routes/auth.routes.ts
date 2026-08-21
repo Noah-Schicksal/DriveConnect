@@ -31,7 +31,7 @@ export async function login(req: IncomingMessage, res: ServerResponse) {
     const validation = loginSchema.safeParse(corpo);
     if (!validation.success) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ erro: validation.error.errors[0].message }));
+      res.end(JSON.stringify({ erro: validation.error.issues[0]?.message || 'Erro de validação.' }));
       return;
     }
 
@@ -95,7 +95,7 @@ export async function register(req: IncomingMessage, res: ServerResponse) {
     const validation = registerSchema.safeParse(corpo);
     if (!validation.success) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ erro: validation.error.errors[0].message }));
+      res.end(JSON.stringify({ erro: validation.error.issues[0]?.message || 'Erro de validação.' }));
       return;
     }
 
@@ -168,7 +168,7 @@ export async function registerManager(req: IncomingMessage, res: ServerResponse)
     const validation = registerManagerSchema.safeParse(normalizedBody);
     if (!validation.success) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ erro: validation.error.errors[0].message }));
+      res.end(JSON.stringify({ erro: validation.error.issues[0]?.message || 'Erro de validação.' }));
       return;
     }
 
