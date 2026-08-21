@@ -4,7 +4,7 @@ import { PGVectorStore } from '@langchain/community/vectorstores/pgvector';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import { RunnableSequence } from '@langchain/core/runnables';
-import { query } from '../db/index.js';
+import { query, pool } from '../db/index.js';
 
 export type HistoryMessage = {
   role: 'user' | 'assistant';
@@ -112,7 +112,7 @@ const model = new ChatOpenAI({
   modelName: process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini',
   temperature: parseTemperature(process.env.OPENAI_TEMPERATURE, 0.1),
   openAIApiKey: openAIApiKey ?? '',
-  maxTokens: Number.parseInt(process.env.OPENAI_MAX_TOKENS || '220', 10),
+  maxTokens: Number.parseInt(process.env.OPENAI_MAX_TOKENS || '600', 10),
   timeout: Number.parseInt(process.env.OPENAI_TIMEOUT_MS || '8000', 10),
 });
 
@@ -128,9 +128,7 @@ async function getVectorStore(): Promise<PGVectorStore> {
   });
 
   vectorStore = await PGVectorStore.initialize(embeddings, {
-    postgresConnectionOptions: {
-      connectionString: process.env.DATABASE_URL,
-    },
+    pool,
     tableName: process.env.RAG_PG_TABLE || 'langchain_pg_embedding',
     collectionTableName: process.env.RAG_COLLECTION_TABLE || 'langchain_pg_collection',
     collectionName: process.env.RAG_COLLECTION || 'driveconnect',

@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 
 // Utiliza a variável de ambiente DATABASE_URL, ex: postgresql://user:pass@localhost:5432/dbname
-const pool = new Pool({
+export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
