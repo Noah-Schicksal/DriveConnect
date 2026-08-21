@@ -1,21 +1,41 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import * as argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
+import { z } from 'zod';
 import { query, getClient } from '../db/index.js';
 import { checkRole } from '../utils/auth.js';
 import { Cliente } from '../entities/Cliente.js';
 
+const loginSchema = z.object({
+  email: z.string().email('Formato de e-mail inválido.'),
+  senha: z.string().min(1, 'Senha é obrigatória.'),
+});
+
+const registerSchema = z.object({
+  email: z.string().email('Formato de e-mail inválido.'),
+  senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres.'),
+  nome_completo: z.string().min(3, 'Nome completo deve ter no mínimo 3 caracteres.'),
+  cpf: z.string().min(11, 'CPF é obrigatório.'),
+});
+
+const registerManagerSchema = z.object({
+  email: z.string().email('Formato de e-mail inválido.'),
+  senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres.'),
+  nome_completo: z.string().min(3, 'Nome completo deve ter no mínimo 3 caracteres.'),
+  filial_id: z.string().uuid('ID de filial inválido.').nullable().optional(),
+});
+
 export async function login(req: IncomingMessage, res: ServerResponse) {
-  const corpo = await lerCorpo(req);
-  const { email, senha } = corpo;
-
-  if (!email || !senha) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ erro: 'Email e senha são obrigatórios.' }));
-    return;
-  }
-
   try {
+    const corpo = await lerCorpo(req);
+    const validation = loginSchema.safeParse(corpo);
+    if (!validation.success) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ erro: validation.error.errors[0].message }));
+      return;
+    }
+
+    const { email, senha } = validation.data;
     const { rows } = await query('SELECT * FROM usuario WHERE email = $1 AND deletado_em IS NULL', [email]);
     const user = rows[0];
 
@@ -26,7 +46,6 @@ export async function login(req: IncomingMessage, res: ServerResponse) {
     }
 
     const isPasswordValid = await argon2.verify(user.senha, senha);
-
     if (!isPasswordValid) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ erro: 'Credenciais inválidas.' }));
@@ -65,24 +84,24 @@ export async function login(req: IncomingMessage, res: ServerResponse) {
       }
     }));
   } catch (error) {
-    console.error('Erro no login:', error);
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ erro: 'Erro interno no servidor.' }));
   }
 }
 
 export async function register(req: IncomingMessage, res: ServerResponse) {
-  const corpo = await lerCorpo(req);
-  const { email, senha, nome_completo, cpf } = corpo;
-
-  if (!email || !senha || !nome_completo || !cpf) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ erro: 'Email, senha, nome completo e CPF são obrigatórios.' }));
-    return;
-  }
-
-  const client = await getClient();
   try {
+    const corpo = await lerCorpo(req);
+    const validation = registerSchema.safeParse(corpo);
+    if (!validation.success) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ erro: validation.error.errors[0].message }));
+      return;
+    }
+
+    const { email, senha, nome_completo, cpf } = validation.data;
+    const client = await getClient();
+
     let cpfNormalizado: string;
     try {
       cpfNormalizado = Cliente.normalizarCpf(cpf);
@@ -110,7 +129,6 @@ export async function register(req: IncomingMessage, res: ServerResponse) {
     }
 
     await client.query('BEGIN');
-
     const hashedPassword = await argon2.hash(senha);
 
     const userInsert = await client.query(
@@ -132,9 +150,6 @@ export async function register(req: IncomingMessage, res: ServerResponse) {
       mensagem: 'Conta criada com sucesso.'
     }));
   } catch (error) {
-    await client.query('ROLLBACK');
-    client.release();
-    console.error('Erro no registro:', error);
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ erro: 'Erro interno no servidor.' }));
   }
@@ -142,20 +157,24 @@ export async function register(req: IncomingMessage, res: ServerResponse) {
 
 export async function registerManager(req: IncomingMessage, res: ServerResponse) {
   const currentUser = checkRole(req, res, ['ADMIN']);
-  if (!currentUser) return; // checkRole j responde se falhar
+  if (!currentUser) return;
 
-  const corpo = await lerCorpo(req);
-  const { email, nome_completo, filial_id } = corpo;
-  const senha = corpo.senha || corpo.password;
-
-  if (!email || !senha || !nome_completo) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ erro: 'Email, senha e nome completo são obrigatórios.' }));
-    return;
-  }
-
-  const client = await getClient();
   try {
+    const corpo = await lerCorpo(req);
+    const normalizedBody = {
+      ...corpo,
+      senha: corpo.senha || corpo.password
+    };
+    const validation = registerManagerSchema.safeParse(normalizedBody);
+    if (!validation.success) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ erro: validation.error.errors[0].message }));
+      return;
+    }
+
+    const { email, senha, nome_completo, filial_id } = validation.data;
+    const client = await getClient();
+
     const userExists = await client.query('SELECT id FROM usuario WHERE email = $1', [email]);
     if (userExists.rows.length > 0) {
       client.release();
@@ -165,7 +184,6 @@ export async function registerManager(req: IncomingMessage, res: ServerResponse)
     }
 
     await client.query('BEGIN');
-
     const hashedPassword = await argon2.hash(senha);
 
     const userInsert = await client.query(
@@ -174,7 +192,6 @@ export async function registerManager(req: IncomingMessage, res: ServerResponse)
     );
     const newUser = userInsert.rows[0];
 
-    // Se filial_id for fornecido, vincula, se não, é um gerente global (null)
     await client.query(
       'INSERT INTO gerente (usuario_id, nome_completo, filial_id) VALUES ($1, $2, $3)',
       [newUser.id, nome_completo, filial_id || null]
@@ -189,9 +206,6 @@ export async function registerManager(req: IncomingMessage, res: ServerResponse)
       gerente: { id: newUser.id, email: newUser.email, nome: nome_completo }
     }));
   } catch (error) {
-    await client.query('ROLLBACK');
-    client.release();
-    console.error('Erro no registro de gerente:', error);
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ erro: 'Erro interno no servidor.' }));
   }
