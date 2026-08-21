@@ -6,7 +6,7 @@ global.fetch = mockFetch as any;
 
 // Mock dependencies
 jest.unstable_mockModule('../../../src/db/index.js', () => ({
-  query: jest.fn(),
+  query: jest.fn().mockResolvedValue({ rows: [{ status: 'OPEN' }] }),
   getClient: jest.fn().mockResolvedValue({
     query: jest.fn(),
     release: jest.fn(),
@@ -17,6 +17,14 @@ jest.unstable_mockModule('../../../src/ai/rag.js', () => ({
   answerWhatsAppMessage: jest.fn().mockResolvedValue('Mocked AI response'),
 }));
 
+jest.unstable_mockModule('../../../src/ai/agent.js', () => ({
+  atenderClienteComAgent: jest.fn().mockResolvedValue({
+    resposta: 'Mocked AI response',
+    intencao: 'GENERICO',
+    tools_usadas: [],
+  }),
+}));
+
 jest.unstable_mockModule('../../../src/services/whatsappStorage.service.js', () => ({
   ensureConversation: jest.fn().mockResolvedValue({ id: 'conv-123' }),
   storeMessage: jest.fn().mockResolvedValue({ id: 'msg-stored-123' }),
@@ -25,12 +33,16 @@ jest.unstable_mockModule('../../../src/services/whatsappStorage.service.js', () 
   getWhatsappReserva: jest.fn().mockResolvedValue(null),
   linkReservaToConversation: jest.fn().mockResolvedValue(undefined),
   markWhatsappReservaNotified: jest.fn().mockResolvedValue(undefined),
+  pauseConversation: jest.fn().mockResolvedValue(undefined),
+  resumeConversation: jest.fn().mockResolvedValue(undefined),
+  sendManagerMessage: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.unstable_mockModule('../../../src/services/reserva.service.js', () => ({
   buscarVeiculoDisponivelPorFilial: jest.fn(),
   calcularValorTotal: jest.fn(),
   criarReservaPendente: jest.fn(),
+  buscarVeiculoFisicoDisponivelSemData: jest.fn(),
 }));
 
 const { sendMessage, processIncomingMessage } = await import('../../../src/services/whatsapp.service.js');
