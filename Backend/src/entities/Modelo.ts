@@ -1,7 +1,4 @@
-// ──────────────────────────────────────────────
 // Modelo — Entity (validação pura, sem acesso ao banco)
-// ──────────────────────────────────────────────
-
 export interface ModeloInput {
     nome: string;
     marca: string;

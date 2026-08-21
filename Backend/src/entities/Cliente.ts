@@ -30,10 +30,7 @@ export class Cliente {
     this.deletadoEm = dados.deletadoEm;
   }
 
-  // ──────────────────────────────────────────────
   // Regras de negócio estáticas
-  // ──────────────────────────────────────────────
-
   static validarNome(nome: string): void {
     if (!nome || nome.trim().length < 3) {
       throw new Error('Nome completo deve ter no mínimo 3 caracteres.');
@@ -58,10 +55,7 @@ export class Cliente {
     return formatted;
   }
 
-  // ──────────────────────────────────────────────
   // Regras de negócio de instância
-  // ──────────────────────────────────────────────
-
   podeDirigir(): boolean {
     return this.cnh !== null && this.cnh.trim().length > 0;
   }

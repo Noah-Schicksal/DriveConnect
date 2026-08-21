@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
-// Define mocks before any imports
 const mockFetch = jest.fn();
 global.fetch = mockFetch as any;
 
@@ -34,7 +33,6 @@ jest.unstable_mockModule('../../../src/services/reserva.service.js', () => ({
   criarReservaPendente: jest.fn(),
 }));
 
-// Import the service after mocking
 const { sendMessage, processIncomingMessage } = await import('../../../src/services/whatsapp.service.js');
 const { ensureConversation, storeMessage } = await import('../../../src/services/whatsappStorage.service.js');
 

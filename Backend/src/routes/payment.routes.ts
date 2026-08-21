@@ -8,11 +8,9 @@ import {
 } from '../services/reserva.service.js';
 import { notifyPaymentConfirmed } from '../services/whatsapp.service.js';
 
-// ──────────────────────────────────────────────
 // POST /pagamento/iniciar
 // Recebe modelo, datas e dados do cliente, cria
 // reserva pendente e devolve o link de checkout.
-// ──────────────────────────────────────────────
 export async function iniciarPagamento(req: IncomingMessage, res: ServerResponse) {
   const corpo = await lerCorpo(req);
 
@@ -86,11 +84,9 @@ export async function iniciarPagamento(req: IncomingMessage, res: ServerResponse
   }));
 }
 
-// ──────────────────────────────────────────────
 // POST /pagamento/webhook
 // Recebe notificação da InfinitePay e confirma
 // a reserva automaticamente.
-// ──────────────────────────────────────────────
 export async function receberWebhook(req: IncomingMessage, res: ServerResponse) {
   const corpo = await lerCorpo(req);
 
@@ -121,10 +117,8 @@ export async function receberWebhook(req: IncomingMessage, res: ServerResponse) 
   res.end(JSON.stringify({ success: true, message: null }));
 }
 
-// ──────────────────────────────────────────────
 // GET /pagamento/status/:reservaId
 // Fallback: polling manual do status de pagamento
-// ──────────────────────────────────────────────
 export async function statusPagamento(req: IncomingMessage, res: ServerResponse, reservaId: string) {
   const resultado = await query(
     'SELECT status, infinitepay_nsu, infinitepay_slug, metodo_pagamento, comprovante_url, pagamento_em FROM reserva WHERE id = $1',
@@ -150,9 +144,7 @@ export async function statusPagamento(req: IncomingMessage, res: ServerResponse,
   res.end(JSON.stringify(resultado.rows[0]));
 }
 
-// ──────────────────────────────────────────────
 // Utilitário: lê o corpo JSON da requisição
-// ──────────────────────────────────────────────
 function lerCorpo(req: IncomingMessage): Promise<Record<string, any>> {
   return new Promise((resolve, reject) => {
     let dados = '';

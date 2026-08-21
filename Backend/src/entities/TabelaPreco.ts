@@ -1,7 +1,4 @@
-// ──────────────────────────────────────────────
 // TabelaPreco — Entity (validação pura)
-// ──────────────────────────────────────────────
-
 export interface TabelaPrecoInput {
     tipo_carro_id: number;
     filial_id: string;

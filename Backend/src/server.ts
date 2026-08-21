@@ -139,9 +139,7 @@ import { registrarTokenFcm, removerTokenFcm } from './routes/notification.routes
 
 const PORT = Number(process.env.PORT) || 3000;
 
-// ──────────────────────────────────────────────
 // Roteamento central (method + pathname)
-// ──────────────────────────────────────────────
 async function roteador(req: IncomingMessage, res: ServerResponse): Promise<void> {
   // HTTPS enforcement — redireciona HTTP → HTTPS em produção
   if (enforceHttps(req, res)) return;

@@ -34,11 +34,9 @@ function mapearErro(err: unknown): { status: number; mensagem: string } {
   return { status, mensagem };
 }
 
-// ──────────────────────────────────────────────
 // GET /seguros
 // Lista todos os planos de seguro ativos da empresa.
 // O plano Básico (obrigatório) sempre aparece primeiro.
-// ──────────────────────────────────────────────
 export async function listarSeguros(_req: IncomingMessage, res: ServerResponse) {
   try {
     const planos = await listarPlanos();
@@ -49,11 +47,9 @@ export async function listarSeguros(_req: IncomingMessage, res: ServerResponse) 
   }
 }
 
-// ──────────────────────────────────────────────
 // POST /seguros
 // Cria um novo plano de seguro global da empresa.
 // Body: { nome, descricao?, percentual, obrigatorio? }
-// ──────────────────────────────────────────────
 export async function criarSeguro(req: IncomingMessage, res: ServerResponse) {
   try {
     const caller = requireCaller(req);
@@ -80,11 +76,9 @@ export async function criarSeguro(req: IncomingMessage, res: ServerResponse) {
   }
 }
 
-// ──────────────────────────────────────────────
 // PUT /seguros/:id
 // Atualiza nome, descrição ou percentual de um plano.
 // Body: { nome?, descricao?, percentual? }
-// ──────────────────────────────────────────────
 export async function atualizarSeguro(req: IncomingMessage, res: ServerResponse, planoId: string) {
   try {
     const caller = requireCaller(req);
@@ -107,11 +101,9 @@ export async function atualizarSeguro(req: IncomingMessage, res: ServerResponse,
   }
 }
 
-// ──────────────────────────────────────────────
 // DELETE /seguros/:id
 // Desativa (soft delete) um plano de seguro.
 // Planos obrigatórios (Básico) não podem ser desativados.
-// ──────────────────────────────────────────────
 export async function desativarSeguro(req: IncomingMessage, res: ServerResponse, planoId: string) {
   try {
     const caller = requireCaller(req);

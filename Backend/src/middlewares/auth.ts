@@ -2,10 +2,7 @@ import type { IncomingMessage } from 'http';
 import type { TipoUsuario } from '../entities/Usuario.js';
 import jwt from 'jsonwebtoken';
 
-// ──────────────────────────────────────────────
 // Tipos
-// ──────────────────────────────────────────────
-
 export interface Caller {
   usuarioId: string;
   tipo: TipoUsuario;
@@ -29,10 +26,7 @@ export interface JwtPayload {
   exp?: number;
 }
 
-// ──────────────────────────────────────────────
 // Geração de JWT
-// ──────────────────────────────────────────────
-
 export function gerarToken(payload: { id: string; email: string; tipo: TipoUsuario; filialId?: string | null }): string {
   return jwt.sign(
     { id: payload.id, email: payload.email, tipo: payload.tipo, filialId: payload.filialId ?? null },
@@ -41,11 +35,8 @@ export function gerarToken(payload: { id: string; email: string; tipo: TipoUsuar
   );
 }
 
-// ──────────────────────────────────────────────
 // Extração de identidade via JWT (Authorization: Bearer <token>)
 // Fallback para headers x-usuario-id/x-tipo (compatibilidade)
-// ──────────────────────────────────────────────
-
 export function extractCaller(req: IncomingMessage): Caller | null {
   // 1. Tenta extrair do JWT (Authorization header)
   const authHeader = req.headers.authorization;
@@ -90,10 +81,7 @@ export function extractCaller(req: IncomingMessage): Caller | null {
   };
 }
 
-// ──────────────────────────────────────────────
 // Guards reutilizáveis
-// ──────────────────────────────────────────────
-
 /** Garante que o caller está autenticado. Lança Error se não. */
 export function requireCaller(req: IncomingMessage): Caller {
   const caller = extractCaller(req);

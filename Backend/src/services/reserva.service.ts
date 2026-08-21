@@ -7,10 +7,7 @@ import type { Caller } from '../middlewares/auth.js';
 
 const EXPIRACAO_MINUTOS = Number(process.env.PAGAMENTO_EXPIRACAO_MINUTOS) || 15;
 
-// ──────────────────────────────────────────────
 // DISPONIBILIDADE
-// ──────────────────────────────────────────────
-
 /**
  * Busca a primeira unidade física disponível de um modelo para o período.
  * Garante (A): nenhum veículo pode ter reservas conflitantes ativas.
@@ -156,10 +153,7 @@ export async function calcularValorTotal(
   return precoDiaria * numeroDias;
 }
 
-// ──────────────────────────────────────────────
 // CRIAÇÃO E CONFIRMAÇÃO DE RESERVA
-// ──────────────────────────────────────────────
-
 interface CriarReservaParams {
   clienteId: string;
   veiculoId: string;
@@ -542,10 +536,7 @@ export async function confirmarReserva(dados: DadosWebhook): Promise<'confirmed'
   return 'confirmed';
 }
 
-// ──────────────────────────────────────────────
 // ESTENDER RESERVA
-// ──────────────────────────────────────────────
-
 /**
  * Estende uma reserva para uma nova data_fim.
  */
@@ -633,10 +624,7 @@ export async function estenderReserva(
   );
 }
 
-// ──────────────────────────────────────────────
 // GARANTIA B: VERIFICAÇÃO DE RETIRADA
-// ──────────────────────────────────────────────
-
 export interface StatusRetirada {
   liberado: boolean;
   motivo?: string;
@@ -676,10 +664,7 @@ export async function verificarDisponibilidadeRetirada(
   return { liberado: true };
 }
 
-// ──────────────────────────────────────────────
 // JOB: EXPIRAÇÃO DE RESERVAS PENDENTES
-// ──────────────────────────────────────────────
-
 /**
  * Expira reservas PENDENTE_PAGAMENTO cujo tempo limite foi ultrapassado.
  * Deve ser chamada periodicamente (ex: a cada 5 minutos via setInterval ou cron).

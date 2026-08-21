@@ -49,10 +49,8 @@ async function tratarErro(res: ServerResponse, err: unknown): Promise<void> {
   responder(res, status, { erro: mensagem });
 }
 
-// ──────────────────────────────────────────────
 // POST /usuarios/esqueci-senha
 // Body: { email }
-// ──────────────────────────────────────────────
 export async function solicitarRecuperacaoSenha(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const { email } = await lerCorpo(req);
@@ -72,10 +70,8 @@ export async function solicitarRecuperacaoSenha(req: IncomingMessage, res: Serve
   }
 }
 
-// ──────────────────────────────────────────────
 // POST /usuarios/redefinir-senha
 // Body: { token, nova_senha }
-// ──────────────────────────────────────────────
 export async function redefinirSenhaToken(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const { token, nova_senha } = await lerCorpo(req);
@@ -91,10 +87,8 @@ export async function redefinirSenhaToken(req: IncomingMessage, res: ServerRespo
   }
 }
 
-// ──────────────────────────────────────────────
 // POST /usuarios/login
 // Body: { email, senha }
-// ──────────────────────────────────────────────
 export async function login(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const { email, senha } = await lerCorpo(req);
@@ -118,10 +112,8 @@ export async function login(req: IncomingMessage, res: ServerResponse): Promise<
   }
 }
 
-// ──────────────────────────────────────────────
 // POST /usuarios/clientes
 // Body: { email, senha, nome_completo, cpf, rg?, cnh? }
-// ──────────────────────────────────────────────
 export async function registrarCliente(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const corpo = await lerCorpo(req);
@@ -139,10 +131,8 @@ export async function registrarCliente(req: IncomingMessage, res: ServerResponse
   }
 }
 
-// ──────────────────────────────────────────────
 // POST /usuarios/gerentes
 // Body: { email, senha, nome_completo, filial_id? }
-// ──────────────────────────────────────────────
 export async function registrarGerente(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -163,10 +153,8 @@ export async function registrarGerente(req: IncomingMessage, res: ServerResponse
   }
 }
 
-// ──────────────────────────────────────────────
 // GET /usuarios
 // Acesso: ADMIN
-// ──────────────────────────────────────────────
 export async function listarTodosUsuariosSistema(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -179,10 +167,8 @@ export async function listarTodosUsuariosSistema(req: IncomingMessage, res: Serv
   }
 }
 
-// ──────────────────────────────────────────────
 // GET /usuarios/clientes
 // Acesso: GERENTE, ADMIN
-// ──────────────────────────────────────────────
 export async function listarTodosClientes(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -195,10 +181,8 @@ export async function listarTodosClientes(req: IncomingMessage, res: ServerRespo
   }
 }
 
-// ──────────────────────────────────────────────
 // GET /usuarios/clientes/:id
 // Acesso: GERENTE, ADMIN
-// ──────────────────────────────────────────────
 export async function buscarCliente(req: IncomingMessage, res: ServerResponse, clienteId: string): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -213,10 +197,8 @@ export async function buscarCliente(req: IncomingMessage, res: ServerResponse, c
   }
 }
 
-// ──────────────────────────────────────────────
 // GET /usuarios/clientes/me
 // Acesso: CLIENTE (retorna apenas os próprios dados)
-// ──────────────────────────────────────────────
 export async function buscarMeuPerfil(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -231,11 +213,9 @@ export async function buscarMeuPerfil(req: IncomingMessage, res: ServerResponse)
   }
 }
 
-// ──────────────────────────────────────────────
 // PUT /usuarios/clientes/:id
 // Acesso: GERENTE, ADMIN
 // Body: { nome_completo?, rg?, cnh? }
-// ──────────────────────────────────────────────
 export async function editarCliente(req: IncomingMessage, res: ServerResponse, clienteId: string): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -253,11 +233,9 @@ export async function editarCliente(req: IncomingMessage, res: ServerResponse, c
   }
 }
 
-// ──────────────────────────────────────────────
 // PUT /usuarios/clientes/me
 // Acesso: CLIENTE (edita apenas os próprios dados)
 // Body: { nome_completo?, rg?, cnh? }
-// ──────────────────────────────────────────────
 export async function editarMeuPerfil(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -275,10 +253,8 @@ export async function editarMeuPerfil(req: IncomingMessage, res: ServerResponse)
   }
 }
 
-// ──────────────────────────────────────────────
 // DELETE /usuarios/clientes/me
 // Acesso: CLIENTE (desativa a própria conta e o perfil de cliente)
-// ──────────────────────────────────────────────
 export async function desativarMinhaContaCliente(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -291,11 +267,9 @@ export async function desativarMinhaContaCliente(req: IncomingMessage, res: Serv
   }
 }
 
-// ──────────────────────────────────────────────
 // PATCH /usuarios/:id/senha
 // Acesso: o próprio usuário (ownership check)
 // Body: { nova_senha }
-// ──────────────────────────────────────────────
 export async function trocarSenha(req: IncomingMessage, res: ServerResponse, usuarioId: string): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -311,10 +285,8 @@ export async function trocarSenha(req: IncomingMessage, res: ServerResponse, usu
   }
 }
 
-// ──────────────────────────────────────────────
 // DELETE /usuarios/:id
 // Acesso: ADMIN
-// ──────────────────────────────────────────────
 export async function deletarUsuario(req: IncomingMessage, res: ServerResponse, usuarioId: string): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -327,10 +299,8 @@ export async function deletarUsuario(req: IncomingMessage, res: ServerResponse, 
   }
 }
 
-// ──────────────────────────────────────────────
 // POST /usuarios/me/foto
 // Acesso: logado
-// ──────────────────────────────────────────────
 export async function atualizarFotoPerfilHandler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -348,10 +318,8 @@ export async function atualizarFotoPerfilHandler(req: IncomingMessage, res: Serv
   }
 }
 
-// ──────────────────────────────────────────────
 // PATCH /usuarios/me/preferencias
 // Acesso: logado
-// ──────────────────────────────────────────────
 export async function atualizarPreferenciasHandler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -370,10 +338,8 @@ export async function atualizarPreferenciasHandler(req: IncomingMessage, res: Se
 }
 
 
-// ──────────────────────────────────────────────
 // GET /usuarios/me/foto
 // Acesso: logado (serve a própria imagem binária)
-// ──────────────────────────────────────────────
 export async function baixarMinhaFotoHandler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -400,10 +366,8 @@ export async function baixarMinhaFotoHandler(req: IncomingMessage, res: ServerRe
   }
 }
 
-// ──────────────────────────────────────────────
 // DELETE /usuarios/me/foto
 // Acesso: logado
-// ──────────────────────────────────────────────
 export async function removerFotoPerfilHandler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);

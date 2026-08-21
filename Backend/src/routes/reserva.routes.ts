@@ -39,11 +39,9 @@ function mapearErro(err: unknown): { status: number; mensagem: string } {
   return { status, mensagem };
 }
 
-// ──────────────────────────────────────────────
 // GET /reservas/disponibilidade
 // Query params: modelo_id, filial_id, data_inicio, data_fim
 // Verifica se há unidades disponíveis e retorna o preço
-// ──────────────────────────────────────────────
 export async function checarDisponibilidade(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '', `http://${req.headers.host}`);
   const modeloId = Number(url.searchParams.get('modelo_id'));
@@ -72,11 +70,9 @@ export async function checarDisponibilidade(req: IncomingMessage, res: ServerRes
   res.end(JSON.stringify({ disponivel, preco_total: precoTotal, veiculo_id: veiculoId }));
 }
 
-// ──────────────────────────────────────────────
 // POST /reservas
 // Body: { veiculo_id, filial_retirada_id, filial_devolucao_id, data_inicio, data_fim, plano_seguro_id }
 // Acesso: CLIENTE
-// ──────────────────────────────────────────────
 export async function registrarReserva(req: IncomingMessage, res: ServerResponse) {
   try {
     const caller = requireCaller(req);
@@ -184,11 +180,9 @@ export async function registrarReserva(req: IncomingMessage, res: ServerResponse
   }
 }
 
-// ──────────────────────────────────────────────
 // POST /reservas/:id/estender
 // Estende uma reserva ativa ou reservada para uma nova data_fim.
 // Acesso: CLIENTE, GERENTE, ADMIN
-// ──────────────────────────────────────────────
 export async function estenderReservaHandler(req: IncomingMessage, res: ServerResponse, reservaId: string) {
   try {
     const caller = requireCaller(req);
@@ -208,11 +202,9 @@ export async function estenderReservaHandler(req: IncomingMessage, res: ServerRe
   }
 }
 
-// ──────────────────────────────────────────────
 // POST /reservas/:id/retirada
 // Garantia B: verifica em tempo real se o veículo
 // está pronto para ser entregue ao cliente.
-// ──────────────────────────────────────────────
 export async function confirmarRetirada(req: IncomingMessage, res: ServerResponse, reservaId: string) {
   try {
     const caller = requireCaller(req);
@@ -244,10 +236,8 @@ export async function confirmarRetirada(req: IncomingMessage, res: ServerRespons
   }
 }
 
-// ──────────────────────────────────────────────
 // POST /reservas/:id/devolucao
 // Registra a devolução do veículo, finalizando a reserva
-// ──────────────────────────────────────────────
 export async function confirmarDevolucao(req: IncomingMessage, res: ServerResponse, reservaId: string) {
   try {
     const caller = requireCaller(req);
@@ -282,12 +272,10 @@ export async function confirmarDevolucao(req: IncomingMessage, res: ServerRespon
     responder(res, status, { erro: mensagem });
   }
 }
-// ──────────────────────────────────────────────
 // POST /reservas/:id/confirmar-pagamento
 // Permite que um gerente ou admin confirme manualmente o pagamento
 // (ex: recebimento em dinheiro ou via link externo)
 // Acesso: GERENTE, ADMIN (via JWT)
-// ──────────────────────────────────────────────
 export async function manualConfirmarPagamento(req: IncomingMessage, res: ServerResponse, reservaId: string) {
   try {
     const caller = requireCaller(req);
@@ -305,11 +293,9 @@ export async function manualConfirmarPagamento(req: IncomingMessage, res: Server
   }
 }
 
-// ──────────────────────────────────────────────
 // PATCH /reservas/:id
 // Atualiza uma reserva pendente (veículo e datas)
 // Acesso: CLIENTE (própria), GERENTE (filial própria) | ADMIN
-// ──────────────────────────────────────────────
 export async function atualizarReservaHandler(req: IncomingMessage, res: ServerResponse, reservaId: string) {
   try {
     const caller = requireCaller(req);

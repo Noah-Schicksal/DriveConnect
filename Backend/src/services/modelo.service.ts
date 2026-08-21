@@ -1,10 +1,7 @@
 import { query } from '../db/index.js';
 import { Modelo, type ModeloInput, type ModeloSafe, type ModeloUpdateInput } from '../entities/Modelo.js';
 
-// ──────────────────────────────────────────────
 // PRIVADAS — lógica real
-// ──────────────────────────────────────────────
-
 async function _listarModelos(tipoCarroId?: number): Promise<ModeloSafe[]> {
     let sql = `
         SELECT m.id, m.nome, m.marca, m.tipo_carro_id,
@@ -159,10 +156,7 @@ async function _deletarModelo(id: number): Promise<boolean> {
     return (resultado.rowCount ?? 0) > 0;
 }
 
-// ──────────────────────────────────────────────
 // PÚBLICAS — wrappers finos (Wrapper Pattern)
-// ──────────────────────────────────────────────
-
 export async function listarModelos(tipoCarroId?: number): Promise<ModeloSafe[]> {
     return _listarModelos(tipoCarroId);
 }

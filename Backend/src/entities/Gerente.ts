@@ -22,10 +22,7 @@ export class Gerente {
     this.deletadoEm = dados.deletadoEm;
   }
 
-  // ──────────────────────────────────────────────
   // Regras de negócio de instância
-  // ──────────────────────────────────────────────
-
   /** Gerente sem filial_id tem acesso a todas as filiais (gerente global). */
   isGlobal(): boolean {
     return this.filialId === null;

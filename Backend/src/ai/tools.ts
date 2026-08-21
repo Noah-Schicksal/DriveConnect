@@ -1,5 +1,5 @@
 /**
- * Tools para o AI Agent — Funções que a IA pode chamar para acessar dados reais e executar ações.
+ * Tools — Funções que a IA pode chamar para acessar dados reais e executar ações.
  * Cada tool retorna um objeto estruturado com sucesso, dados e metadados.
  */
 
@@ -8,10 +8,7 @@ import { criarReservaPendente } from '../services/reserva.service.js';
 import { buscarClientePorId } from '../services/usuario.service.js';
 import type { Caller } from '../middlewares/auth.js';
 
-// ──────────────────────────────────────────────────────
 // TIPOS
-// ──────────────────────────────────────────────────────
-
 export type ToolResult<T = any> = {
   success: boolean;
   data?: T;
@@ -19,10 +16,7 @@ export type ToolResult<T = any> = {
   metadata?: Record<string, any>;
 };
 
-// ──────────────────────────────────────────────────────
 // TOOL 1: LISTAR FILIAIS
-// ──────────────────────────────────────────────────────
-
 export interface FilialInfo {
   id: string;
   nome: string;
@@ -76,10 +70,7 @@ export async function toolListarFiliais(): Promise<ToolResult<FilialInfo[]>> {
   }
 }
 
-// ──────────────────────────────────────────────────────
 // TOOL 2: LISTAR CARROS DISPONÍVEIS (COM VALIDAÇÃO REAL)
-// ──────────────────────────────────────────────────────
-
 export interface CarroDisponivel {
   id: string;
   placa: string;
@@ -198,10 +189,7 @@ export async function toolListarCarrosDisponiveis(params: {
   }
 }
 
-// ──────────────────────────────────────────────────────
 // TOOL 3: VALIDAR DISPONIBILIDADE ESPECÍFICA
-// ──────────────────────────────────────────────────────
-
 export interface ValidacaoDisponibilidade {
   disponivel: boolean;
   motivo?: string;
@@ -292,10 +280,7 @@ export async function toolValidarDisponibilidade(params: {
   }
 }
 
-// ──────────────────────────────────────────────────────
 // TOOL 4: CRIAR RESERVA
-// ──────────────────────────────────────────────────────
-
 export interface ReservaResult {
   reserva_id: string;
   link_pagamento?: string;
@@ -409,10 +394,7 @@ export async function toolCriarReserva(params: {
   }
 }
 
-// ──────────────────────────────────────────────────────
 // TOOL 5: OBTER DETALHES DE RESERVA
-// ──────────────────────────────────────────────────────
-
 export interface ReservaDetalhes {
   id: string;
   cliente_nome: string;
@@ -473,10 +455,7 @@ export async function toolObterReserva(
   }
 }
 
-// ──────────────────────────────────────────────────────
 // TOOL 6: REGISTRAR CLIENTE (AUTO-SIGN-UP)
-// ──────────────────────────────────────────────────────
-
 export interface ClienteRegistrado {
   cliente_id: string;
   usuario_id: string;
@@ -547,10 +526,7 @@ export async function toolRegistrarCliente(params: {
   }
 }
 
-// ──────────────────────────────────────────────────────
 // TOOL 7: OBTER FOTOS DO VEÍCULO
-// ──────────────────────────────────────────────────────
-
 export interface FotoVeiculo {
   veiculo_id: string;
   placa: string;
@@ -613,10 +589,7 @@ export async function toolObterFotosVeiculo(
   }
 }
 
-// ──────────────────────────────────────────────────────
 // MAPA DE TOOLS (para Agent)
-// ──────────────────────────────────────────────────────
-
 export const TOOLS_MAP = {
   listar_filiais: {
     name: 'listar_filiais',

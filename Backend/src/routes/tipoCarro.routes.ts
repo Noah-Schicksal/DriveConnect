@@ -8,10 +8,7 @@ import {
 } from '../services/tipoCarro.service.js';
 import { requireCaller, requireTipo } from '../middlewares/auth.js';
 
-// ──────────────────────────────────────────────
 // Utilitários locais
-// ──────────────────────────────────────────────
-
 function lerCorpo(req: IncomingMessage): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {
         let dados = '';
@@ -40,10 +37,8 @@ function mapearErro(err: unknown): { status: number; mensagem: string } {
     return { status, mensagem };
 }
 
-// ──────────────────────────────────────────────
 // GET /tipos-carro
 // Acesso: GERENTE, ADMIN — lista todos os tipos
-// ──────────────────────────────────────────────
 export async function listarTipos(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -57,10 +52,8 @@ export async function listarTipos(req: IncomingMessage, res: ServerResponse): Pr
     }
 }
 
-// ──────────────────────────────────────────────
 // GET /tipos-carro/:id
 // Acesso: GERENTE, ADMIN
-// ──────────────────────────────────────────────
 export async function buscarTipo(req: IncomingMessage, res: ServerResponse, idStr: string): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -82,11 +75,9 @@ export async function buscarTipo(req: IncomingMessage, res: ServerResponse, idSt
     }
 }
 
-// ──────────────────────────────────────────────
 // POST /tipos-carro
 // Body: { nome, preco_base_diaria }
 // Acesso: ADMIN
-// ──────────────────────────────────────────────
 export async function registrarTipo(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -102,11 +93,9 @@ export async function registrarTipo(req: IncomingMessage, res: ServerResponse): 
     }
 }
 
-// ──────────────────────────────────────────────
 // PUT /tipos-carro/:id
 // Body: { nome?, preco_base_diaria? }
 // Acesso: ADMIN
-// ──────────────────────────────────────────────
 export async function editarTipo(req: IncomingMessage, res: ServerResponse, idStr: string): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -130,11 +119,9 @@ export async function editarTipo(req: IncomingMessage, res: ServerResponse, idSt
     }
 }
 
-// ──────────────────────────────────────────────
 // DELETE /tipos-carro/:id
 // Acesso: ADMIN
 // Rejeita se houver modelos vinculados (guard no service)
-// ──────────────────────────────────────────────
 export async function removerTipo(req: IncomingMessage, res: ServerResponse, idStr: string): Promise<void> {
     try {
         const caller = requireCaller(req);
