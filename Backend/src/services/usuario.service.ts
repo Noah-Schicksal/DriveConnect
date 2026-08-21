@@ -8,10 +8,7 @@ import { Gerente } from '../entities/Gerente.js';
 import crypto from 'crypto';
 import { notifyNovoCliente } from './fcm.service.js';
 
-// ──────────────────────────────────────────────
 // AUTENTICAÇÃO
-// ──────────────────────────────────────────────
-
 export interface LoginPayload {
   email: string;
   senha: string;
@@ -67,10 +64,7 @@ export async function autenticarUsuario(payload: LoginPayload): Promise<UsuarioA
   };
 }
 
-// ──────────────────────────────────────────────
 // CRIAÇÃO DE USUÁRIO (usuario + perfil em transação)
-// ──────────────────────────────────────────────
-
 interface CriarClienteParams {
   email: string;
   senha: string;
@@ -167,10 +161,7 @@ export async function criarGerente(params: CriarGerenteParams): Promise<{ usuari
   }
 }
 
-// ──────────────────────────────────────────────
 // LEITURA
-// ──────────────────────────────────────────────
-
 /** Busca um usuário ativo por ID, sem expor o hash de senha. */
 export async function buscarUsuarioPorId(id: string): Promise<Usuario | null> {
   const r = await query(
@@ -325,10 +316,7 @@ export async function atualizarMeuPerfilCliente(
   return buscarMeuPerfilCliente(usuarioId);
 }
 
-// ──────────────────────────────────────────────
 // ATUALIZAÇÃO
-// ──────────────────────────────────────────────
-
 interface AtualizarClienteParams {
   nomeCompleto?: string;
   rg?: string;
@@ -372,10 +360,7 @@ export async function alterarSenha(usuarioId: string, novaSenha: string): Promis
   );
 }
 
-// ──────────────────────────────────────────────
 // RECUPERAÇÃO DE SENHA
-// ──────────────────────────────────────────────
-
 export async function esqueciSenha(email: string): Promise<string | null> {
   // 1. Busca o usuário
   const r = await query(`SELECT id FROM usuario WHERE email = $1 AND deletado_em IS NULL`, [email]);
@@ -422,10 +407,7 @@ export async function redefinirSenhaComToken(token: string, novaSenha: string): 
   );
 }
 
-// ──────────────────────────────────────────────
 // SOFT DELETE
-// ──────────────────────────────────────────────
-
 /** Soft-delete do usuário e do perfil (cliente ou gerente) em transação. */
 export async function desativarUsuario(usuarioId: string): Promise<void> {
   const usuarioRow = await query(

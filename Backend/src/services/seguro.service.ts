@@ -1,9 +1,6 @@
 import { query } from '../db/index.js';
 
-// ──────────────────────────────────────────────
 // TIPOS
-// ──────────────────────────────────────────────
-
 export interface PlanoSeguro {
   id: string;
   nome: string;
@@ -20,10 +17,7 @@ interface CriarPlanoParams {
   obrigatorio?: boolean;
 }
 
-// ──────────────────────────────────────────────
 // CONSULTAS
-// ──────────────────────────────────────────────
-
 /**
  * Lista todos os planos de seguro ativos da empresa.
  * O plano obrigatório (Básico) sempre aparece primeiro.
@@ -82,10 +76,7 @@ export async function buscarPlanoPorId(planoId: string): Promise<PlanoSeguro | n
   return { ...resultado.rows[0], percentual: Number(resultado.rows[0].percentual) };
 }
 
-// ──────────────────────────────────────────────
 // CÁLCULO
-// ──────────────────────────────────────────────
-
 /**
  * Calcula o valor do seguro para uma reserva.
  * Fórmula: valor_aluguel × (percentual / 100)
@@ -95,10 +86,7 @@ export function calcularValorSeguro(percentual: number, valorAluguel: number): n
   return Math.round(valorAluguel * (percentual / 100) * 100) / 100;
 }
 
-// ──────────────────────────────────────────────
 // CRUD (uso pelo gerente/admin)
-// ──────────────────────────────────────────────
-
 /**
  * Cria um novo plano de seguro global da empresa.
  * A constraint do banco garante que não existirá mais de 1 plano obrigatório.

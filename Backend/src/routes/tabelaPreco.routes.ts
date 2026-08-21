@@ -8,10 +8,7 @@ import {
 } from '../services/tabelaPreco.service.js';
 import { requireCaller, requireTipo } from '../middlewares/auth.js';
 
-// ──────────────────────────────────────────────
 // Utilitários locais
-// ──────────────────────────────────────────────
-
 function lerCorpo(req: IncomingMessage): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {
         let dados = '';
@@ -39,11 +36,9 @@ function mapearErro(err: unknown): { status: number; mensagem: string } {
     return { status, mensagem };
 }
 
-// ──────────────────────────────────────────────
 // GET /tabelas-preco
 // Query params opcionais: filial_id, tipo_carro_id
 // Acesso: GERENTE (filtra pela sua filial automaticamente se não ADMIN), ADMIN
-// ──────────────────────────────────────────────
 export async function listarTabelas(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -71,10 +66,8 @@ export async function listarTabelas(req: IncomingMessage, res: ServerResponse): 
     }
 }
 
-// ──────────────────────────────────────────────
 // GET /tabelas-preco/:id
 // Acesso: GERENTE, ADMIN
-// ──────────────────────────────────────────────
 export async function buscarTabela(req: IncomingMessage, res: ServerResponse, idStr: string): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -102,11 +95,9 @@ export async function buscarTabela(req: IncomingMessage, res: ServerResponse, id
     }
 }
 
-// ──────────────────────────────────────────────
 // POST /tabelas-preco
 // Body: { tipo_carro_id, filial_id, data_inicio, data_fim, valor_diaria }
 // Acesso: ADMIN
-// ──────────────────────────────────────────────
 export async function registrarTabela(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -121,11 +112,9 @@ export async function registrarTabela(req: IncomingMessage, res: ServerResponse)
     }
 }
 
-// ──────────────────────────────────────────────
 // PUT /tabelas-preco/:id
 // Body: { data_inicio?, data_fim?, valor_diaria? }
 // Acesso: ADMIN
-// ──────────────────────────────────────────────
 export async function editarTabela(req: IncomingMessage, res: ServerResponse, idStr: string): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -148,10 +137,8 @@ export async function editarTabela(req: IncomingMessage, res: ServerResponse, id
     }
 }
 
-// ──────────────────────────────────────────────
 // DELETE /tabelas-preco/:id
 // Acesso: ADMIN
-// ──────────────────────────────────────────────
 export async function removerTabela(req: IncomingMessage, res: ServerResponse, idStr: string): Promise<void> {
     try {
         const caller = requireCaller(req);

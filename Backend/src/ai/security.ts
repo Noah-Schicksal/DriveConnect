@@ -9,10 +9,7 @@
 import 'dotenv/config';
 import { query } from '../db/index.js';
 
-// ──────────────────────────────────────────────────────
 // TIPOS
-// ──────────────────────────────────────────────────────
-
 export interface SecurityConfig {
   rateLimit: {
     enabled: boolean;
@@ -49,10 +46,7 @@ export interface SecurityEvent {
   severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 }
 
-// ──────────────────────────────────────────────────────
 // CONFIGURAÇÃO PADRÃO
-// ──────────────────────────────────────────────────────
-
 const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
   rateLimit: {
     enabled: process.env.SECURITY_RATE_LIMIT_ENABLED !== 'false',
@@ -73,10 +67,7 @@ const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
 
 const DEFAULT_CONFIG = DEFAULT_SECURITY_CONFIG;
 
-// ──────────────────────────────────────────────────────
 // RATE LIMITER (IN-MEMORY COM TTL)
-// ──────────────────────────────────────────────────────
-
 interface RateLimitEntry {
   timestamps: number[];
   blocked_until?: number;
@@ -161,10 +152,7 @@ export function checkRateLimit(telefone: string, config = DEFAULT_CONFIG): RateL
   };
 }
 
-// ──────────────────────────────────────────────────────
 // PROTEÇÃO CONTRA PROMPT INJECTION
-// ──────────────────────────────────────────────────────
-
 const INJECTION_PATTERNS = [
   /(?:ignore|forget|discard|override).{0,20}(?:instruction|prompt|system|role|rule)/i,
   /(?:pretend|act|simulate|role\s*play).{0,20}(?:you are|you're|your role)/i,
@@ -201,10 +189,7 @@ export function detectPromptInjection(text: string): { detected: boolean; confid
   return { detected: false, confidence: 0 };
 }
 
-// ──────────────────────────────────────────────────────
 // SANITIZAÇÃO DE DADOS SENSÍVEIS
-// ──────────────────────────────────────────────────────
-
 const PII_PATTERNS = {
   cpf: /(\d{3})\.(\d{3})\.(\d{3})-(\d{2})/g,
   email: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
@@ -238,10 +223,7 @@ export function sanitizePII(text: string, config = DEFAULT_CONFIG): string {
   return sanitized;
 }
 
-// ──────────────────────────────────────────────────────
 // VALIDAÇÃO E SANITIZAÇÃO DE INPUT
-// ──────────────────────────────────────────────────────
-
 export function validateAndSanitizeInput(
   text: string,
   telefone: string,
@@ -297,10 +279,7 @@ export function validateAndSanitizeInput(
   return { valid: true, sanitized };
 }
 
-// ──────────────────────────────────────────────────────
 // LOGGING DE SEGURANÇA
-// ──────────────────────────────────────────────────────
-
 const inMemoryEvents: SecurityEvent[] = [];
 const MAX_IN_MEMORY_EVENTS = 1000;
 
@@ -360,10 +339,7 @@ export async function logSecurityEvent(event: Omit<SecurityEvent, 'id' | 'timest
   }
 }
 
-// ──────────────────────────────────────────────────────
 // QUERY SOBRE EVENTOS
-// ──────────────────────────────────────────────────────
-
 export function getSecurityEvents(
   filtros?: {
     telefone?: string;
@@ -390,10 +366,7 @@ export function getSecurityEvents(
   return events.slice(-lastN);
 }
 
-// ──────────────────────────────────────────────────────
 // SETUP INICIAL (CRIAR TABELA)
-// ──────────────────────────────────────────────────────
-
 export async function initSecurityDatabase(): Promise<void> {
   try {
     await query(`
@@ -417,10 +390,7 @@ export async function initSecurityDatabase(): Promise<void> {
   }
 }
 
-// ──────────────────────────────────────────────────────
 // EXPORTS
-// ──────────────────────────────────────────────────────
-
 export { DEFAULT_CONFIG };
 
 export function getSecurityStats(): {

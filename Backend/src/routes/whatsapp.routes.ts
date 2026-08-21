@@ -76,10 +76,8 @@ function cleanupRateLimit(windowMs: number): void {
   }
 }
 
-// ──────────────────────────────────────────────
 // GET /whatsapp/webhook
 // Verificação do webhook da Meta
-// ──────────────────────────────────────────────
 export async function verifyWebhook(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '', `http://${req.headers.host}`);
 
@@ -102,10 +100,8 @@ export async function verifyWebhook(req: IncomingMessage, res: ServerResponse) {
   res.end(JSON.stringify({ erro: 'Webhook verification failed.' }));
 }
 
-// ──────────────────────────────────────────────
 // POST /whatsapp/webhook
 // Recebe mensagens e notificações do WhatsApp
-// ──────────────────────────────────────────────
 export async function receiveWebhook(req: IncomingMessage, res: ServerResponse) {
   if (!isJsonContentType(req)) {
     res.writeHead(415, { 'Content-Type': 'application/json' });
@@ -182,10 +178,8 @@ function parsePositiveInt(value: string | null, fallback: number): number {
   return parsed;
 }
 
-// ──────────────────────────────────────────────
 // GET /whatsapp/conversations
 // Listagem administrativa de conversas
-// ──────────────────────────────────────────────
 export async function listAdminConversations(req: IncomingMessage, res: ServerResponse) {
   const currentUser = checkRole(req, res, ['ADMIN']);
   if (!currentUser) return;
@@ -218,10 +212,8 @@ export async function listAdminConversations(req: IncomingMessage, res: ServerRe
   }
 }
 
-// ──────────────────────────────────────────────
 // GET /whatsapp/conversations/:id/messages
 // Mensagens de uma conversa (admin)
-// ──────────────────────────────────────────────
 export async function listAdminConversationMessages(req: IncomingMessage, res: ServerResponse, conversationId: string) {
   const currentUser = checkRole(req, res, ['ADMIN']);
   if (!currentUser) return;
@@ -259,10 +251,8 @@ export async function listAdminConversationMessages(req: IncomingMessage, res: S
   }
 }
 
-// ──────────────────────────────────────────────
 // PATCH /whatsapp/conversations/:id/pause
 // Pausar atendimento (gerente)
-// ──────────────────────────────────────────────
 export async function pauseAttendance(req: IncomingMessage, res: ServerResponse, conversationId: string) {
   const currentUser = checkRole(req, res, ['ADMIN', 'GERENTE']);
   if (!currentUser) return;
@@ -290,10 +280,8 @@ export async function pauseAttendance(req: IncomingMessage, res: ServerResponse,
   }
 }
 
-// ──────────────────────────────────────────────
 // PATCH /whatsapp/conversations/:id/resume
 // Retomar atendimento (gerente)
-// ──────────────────────────────────────────────
 export async function resumeAttendance(req: IncomingMessage, res: ServerResponse, conversationId: string) {
   const currentUser = checkRole(req, res, ['ADMIN', 'GERENTE']);
   if (!currentUser) return;
@@ -336,10 +324,8 @@ function lerCorpoJson(req: IncomingMessage): Promise<Record<string, any>> {
   });
 }
 
-// ──────────────────────────────────────────────
 // POST /whatsapp/conversations/:id/send-message
 // Enviar mensagem como gerente
-// ──────────────────────────────────────────────
 export async function sendMessageAsManager(req: IncomingMessage, res: ServerResponse, conversationId: string) {
   const currentUser = checkRole(req, res, ['ADMIN', 'GERENTE']);
   if (!currentUser) return;

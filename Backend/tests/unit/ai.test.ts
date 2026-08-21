@@ -18,10 +18,7 @@ import {
 import { atenderClienteComAgent } from '../../src/ai/agent.js';
 
 describe('🤖 AI TOOLS & AGENT', () => {
-  // ──────────────────────────────────────────────────────
   // INTENT DETECTION (VIA AGENT)
-  // ──────────────────────────────────────────────────────
-
   describe('📋 Resposta do Agente e Intenção', () => {
     it('deve detectar intenção LISTAR_FILIAIS', async () => {
       const result = await atenderClienteComAgent('Vocês têm filiais em SP?');
@@ -42,10 +39,7 @@ describe('🤖 AI TOOLS & AGENT', () => {
     });
   });
 
-  // ──────────────────────────────────────────────────────
   // TOOLS EXECUTION
-  // ──────────────────────────────────────────────────────
-
   describe('🔧 Execução de Tools', () => {
     it('listar_filiais deve retornar array de filiais', async () => {
       const result = await toolListarFiliais();
@@ -106,10 +100,7 @@ describe('🤖 AI TOOLS & AGENT', () => {
     });
   });
 
-  // ──────────────────────────────────────────────────────
   // EXECUTE TOOL DISPATCHER
-  // ──────────────────────────────────────────────────────
-
   describe('⚙️ Dispatcher de Tools (executeTool)', () => {
     it('deve executar listar_filiais via dispatcher', async () => {
       const result = await executeTool('listar_filiais', {});
@@ -125,10 +116,7 @@ describe('🤖 AI TOOLS & AGENT', () => {
     });
   });
 
-  // ──────────────────────────────────────────────────────
   // INTEGRATION TESTS (requerem DB real)
-  // ──────────────────────────────────────────────────────
-
   describe('🔗 Testes de Integração (com DB)', () => {
     beforeAll(() => {
       // Setup

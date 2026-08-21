@@ -1,10 +1,7 @@
 import { query } from '../db/index.js';
 import { TipoCarro, type TipoCarroInput, type TipoCarroSafe, type TipoCarroUpdateInput } from '../entities/TipoCarro.js';
 
-// ──────────────────────────────────────────────
 // PRIVADAS — lógica real
-// ──────────────────────────────────────────────
-
 async function _listarTiposCarro(): Promise<TipoCarroSafe[]> {
     const resultado = await query(
         `SELECT id, nome, preco_base_diaria FROM tipo_carro ORDER BY nome ASC`,
@@ -74,10 +71,7 @@ async function _deletarTipoCarro(id: number): Promise<boolean> {
     return (resultado.rowCount ?? 0) > 0;
 }
 
-// ──────────────────────────────────────────────
 // PÚBLICAS — wrappers finos (Wrapper Pattern)
-// ──────────────────────────────────────────────
-
 export async function listarTiposCarro(): Promise<TipoCarroSafe[]> {
     return _listarTiposCarro();
 }

@@ -9,10 +9,7 @@ import {
 } from '../services/modelo.service.js';
 import { requireCaller, requireTipo } from '../middlewares/auth.js';
 
-// ──────────────────────────────────────────────
 // Utilitários locais
-// ──────────────────────────────────────────────
-
 function lerCorpo(req: IncomingMessage): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {
         let dados = '';
@@ -41,11 +38,9 @@ function mapearErro(err: unknown): { status: number; mensagem: string } {
     return { status, mensagem };
 }
 
-// ──────────────────────────────────────────────
 // GET /modelos/disponiveis
 // Query param: ?data_inicio=Y-m-d&data_fim=Y-m-d&filial_id=X
 // Acesso: Público / CLIENTE
-// ──────────────────────────────────────────────
 export async function listarDisponiveis(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
@@ -66,11 +61,9 @@ export async function listarDisponiveis(req: IncomingMessage, res: ServerRespons
     }
 }
 
-// ──────────────────────────────────────────────
 // GET /modelos
 // Query param opcional: ?tipo_carro_id=N
 // Acesso: GERENTE, ADMIN
-// ──────────────────────────────────────────────
 export async function listar(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -93,10 +86,8 @@ export async function listar(req: IncomingMessage, res: ServerResponse): Promise
     }
 }
 
-// ──────────────────────────────────────────────
 // GET /modelos/:id
 // Acesso: GERENTE, ADMIN
-// ──────────────────────────────────────────────
 export async function buscar(req: IncomingMessage, res: ServerResponse, idStr: string): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -118,11 +109,9 @@ export async function buscar(req: IncomingMessage, res: ServerResponse, idStr: s
     }
 }
 
-// ──────────────────────────────────────────────
 // POST /modelos
 // Body: { nome, marca, tipo_carro_id }
 // Acesso: ADMIN
-// ──────────────────────────────────────────────
 export async function registrar(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -138,11 +127,9 @@ export async function registrar(req: IncomingMessage, res: ServerResponse): Prom
     }
 }
 
-// ──────────────────────────────────────────────
 // PUT /modelos/:id
 // Body: { nome?, marca?, tipo_carro_id? }
 // Acesso: ADMIN
-// ──────────────────────────────────────────────
 export async function editar(req: IncomingMessage, res: ServerResponse, idStr: string): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -166,11 +153,9 @@ export async function editar(req: IncomingMessage, res: ServerResponse, idStr: s
     }
 }
 
-// ──────────────────────────────────────────────
 // DELETE /modelos/:id
 // Acesso: ADMIN
 // Rejeita se houver veículos ativos vinculados (guard no service)
-// ──────────────────────────────────────────────
 export async function remover(req: IncomingMessage, res: ServerResponse, idStr: string): Promise<void> {
     try {
         const caller = requireCaller(req);

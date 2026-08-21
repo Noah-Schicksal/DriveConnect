@@ -34,10 +34,7 @@ export class Usuario {
     this.deletadoEm = dados.deletadoEm;
   }
 
-  // ──────────────────────────────────────────────
   // Regras de negócio estáticas (validações de entrada)
-  // ──────────────────────────────────────────────
-
   static validarEmail(email: string): void {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email)) {
@@ -57,10 +54,7 @@ export class Usuario {
     }
   }
 
-  // ──────────────────────────────────────────────
   // Regras de negócio de instância
-  // ──────────────────────────────────────────────
-
   estaAtivo(): boolean {
     return this.deletadoEm === null;
   }

@@ -7,10 +7,7 @@ import {
 import { notifyReservaCancelada } from '../services/fcm.service.js';
 import { requireCaller, requireTipo } from '../middlewares/auth.js';
 
-// ──────────────────────────────────────────────
 // Utilitários locais
-// ──────────────────────────────────────────────
-
 function responder(res: ServerResponse, status: number, corpo: unknown): void {
     res.writeHead(status, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(corpo));
@@ -27,11 +24,9 @@ function mapearErro(err: unknown): { status: number; mensagem: string } {
     return { status, mensagem };
 }
 
-// ──────────────────────────────────────────────
 // GET /reservas
 // Query params opcionais: status, cliente_id
 // Acesso: GERENTE (só filial própria) | ADMIN (todas)
-// ──────────────────────────────────────────────
 export async function listarTodasReservas(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -58,11 +53,9 @@ export async function listarTodasReservas(req: IncomingMessage, res: ServerRespo
     }
 }
 
-// ──────────────────────────────────────────────
 // GET /reservas/minhas
 // Lista as reservas do próprio cliente logado.
 // Acesso: CLIENTE
-// ──────────────────────────────────────────────
 export async function listarMinhasReservas(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -153,10 +146,8 @@ export async function listarMinhasReservas(req: IncomingMessage, res: ServerResp
 }
 
 
-// ──────────────────────────────────────────────
 // GET /reservas/:id
 // Acesso: GERENTE (só filial própria) | ADMIN
-// ──────────────────────────────────────────────
 export async function detalharReserva(req: IncomingMessage, res: ServerResponse, reservaId: string): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -175,12 +166,10 @@ export async function detalharReserva(req: IncomingMessage, res: ServerResponse,
     }
 }
 
-// ──────────────────────────────────────────────
 // POST /reservas/:id/cancelar
 // Cancela uma reserva RESERVADA ou PENDENTE_PAGAMENTO.
 // Libera o veículo automaticamente se estava RESERVADA.
 // Acesso: CLIENTE (própria), GERENTE (só filial própria) | ADMIN
-// ──────────────────────────────────────────────
 export async function cancelarReservaHandler(req: IncomingMessage, res: ServerResponse, reservaId: string): Promise<void> {
     try {
         const caller = requireCaller(req);

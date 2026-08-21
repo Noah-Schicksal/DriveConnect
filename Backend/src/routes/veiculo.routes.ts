@@ -43,10 +43,8 @@ async function tratarErro(res: ServerResponse, err: unknown): Promise<void> {
     responder(res, status, { erro: mensagem });
 }
 
-// ──────────────────────────────────────────────
 // POST /veiculos
 // Body (multipart/form-data): modelo_id, filial_id, placa, ano, cor, status, imagem (file único)
-// ──────────────────────────────────────────────
 export async function registrarVeiculo(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -104,9 +102,7 @@ export async function registrarVeiculo(req: IncomingMessage, res: ServerResponse
     }
 }
 
-// ──────────────────────────────────────────────
 // GET /veiculos
-// ──────────────────────────────────────────────
 export async function listar(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -130,9 +126,7 @@ export async function listar(req: IncomingMessage, res: ServerResponse): Promise
     }
 }
 
-// ──────────────────────────────────────────────
 // GET /veiculos/:id3
-// ──────────────────────────────────────────────
 export async function buscar(req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -149,10 +143,8 @@ export async function buscar(req: IncomingMessage, res: ServerResponse, id: stri
     }
 }
 
-// ──────────────────────────────────────────────
 // PUT /veiculos/:id
 // Body: multipart ou Json parcial
-// ──────────────────────────────────────────────
 export async function atualizar(req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
     try {
         const caller = requireCaller(req);
@@ -256,9 +248,7 @@ export async function adicionarImagem(req: IncomingMessage, res: ServerResponse,
     }
 }
 
-// ──────────────────────────────────────────────
 // DELETE /veiculos/:id
-// ──────────────────────────────────────────────
 export async function deletar(req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
     try {
         const caller = requireCaller(req);

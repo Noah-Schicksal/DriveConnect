@@ -2,10 +2,7 @@ import { query } from '../db/index.js';
 import type { Caller } from '../middlewares/auth.js';
 import { atualizarStatusVeiculoE_Notificar } from './veiculo.service.js';
 
-// ──────────────────────────────────────────────
 // Interfaces de retorno seguro
-// ──────────────────────────────────────────────
-
 export interface ReservaResumo {
     id: string;
     cliente_id: string;
@@ -69,10 +66,7 @@ export interface ReservaCanceladaInfo {
     dataFim?: Date;
 }
 
-// ──────────────────────────────────────────────
 // PRIVADAS — lógica real
-// ──────────────────────────────────────────────
-
 /**
  * Monta a cláusula WHERE de acordo com o perfil do caller:
  * - ADMIN: vê todas as reservas
@@ -307,10 +301,7 @@ async function _cancelarReserva(reservaId: string, caller: Caller): Promise<Rese
     return info;
 }
 
-// ──────────────────────────────────────────────
 // PÚBLICAS — wrappers finos (Wrapper Pattern)
-// ──────────────────────────────────────────────
-
 export async function listarReservas(
     caller: Caller,
     status?: string,

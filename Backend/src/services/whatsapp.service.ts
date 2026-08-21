@@ -1,7 +1,4 @@
-// ──────────────────────────────────────────────
 // Serviço para integrar com WhatsApp Cloud API
-// ──────────────────────────────────────────────
-
 import 'dotenv/config';
 import { answerWhatsAppMessage } from '../ai/rag.js';
 import { atenderClienteComAgent } from '../ai/agent.js';

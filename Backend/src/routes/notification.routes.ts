@@ -28,10 +28,8 @@ async function tratarErro(res: ServerResponse, err: unknown): Promise<void> {
   responder(res, status, { erro: mensagem });
 }
 
-// ──────────────────────────────────────────────
 // POST /notificacoes/token
 // Body: { token, plataforma?, deviceId? }
-// ──────────────────────────────────────────────
 export async function registrarTokenFcm(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -55,10 +53,8 @@ export async function registrarTokenFcm(req: IncomingMessage, res: ServerRespons
   }
 }
 
-// ──────────────────────────────────────────────
 // DELETE /notificacoes/token
 // Body: { token }
-// ──────────────────────────────────────────────
 export async function removerTokenFcm(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);

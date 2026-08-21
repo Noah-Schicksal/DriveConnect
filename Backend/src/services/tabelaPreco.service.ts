@@ -1,10 +1,7 @@
 import { query } from '../db/index.js';
 import { TabelaPreco, type TabelaPrecoInput, type TabelaPrecoSafe, type TabelaPrecoUpdateInput } from '../entities/TabelaPreco.js';
 
-// ──────────────────────────────────────────────
 // PRIVADAS — lógica real
-// ──────────────────────────────────────────────
-
 async function _listarTabelasPreco(filialId?: string, tipoCarroId?: number): Promise<TabelaPrecoSafe[]> {
     const condicoes: string[] = [];
     const valores: unknown[] = [];
@@ -100,10 +97,7 @@ async function _deletarTabelaPreco(id: number): Promise<boolean> {
     return (resultado.rowCount ?? 0) > 0;
 }
 
-// ──────────────────────────────────────────────
 // PÚBLICAS — wrappers finos (Wrapper Pattern)
-// ──────────────────────────────────────────────
-
 export async function listarTabelasPreco(filialId?: string, tipoCarroId?: number): Promise<TabelaPrecoSafe[]> {
     return _listarTabelasPreco(filialId, tipoCarroId);
 }

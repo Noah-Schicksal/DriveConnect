@@ -1,10 +1,7 @@
 import { query } from '../db/index.js';
 import type { Caller } from '../middlewares/auth.js';
 
-// ──────────────────────────────────────────────
 // Interfaces de retorno seguro (sem dados sensíveis)
-// ──────────────────────────────────────────────
-
 export interface GerenteDaFilial {
   id: string;
   nomeCompleto: string;
@@ -36,10 +33,7 @@ export interface GerenteResumo {
   criadoEm: Date;
 }
 
-// ──────────────────────────────────────────────
 // FILIAIS — Leitura (qualquer gerente pode ver)
-// ──────────────────────────────────────────────
-
 /** Lista todas as filiais ativas. Dados públicos (sem endereço completo). */
 async function _listarFiliais(): Promise<FilialPublica[]> {
   const r = await query(
@@ -106,10 +100,7 @@ export async function buscarFilialPorId(filialId: string): Promise<FilialDetalha
   return _buscarFilialPorId(filialId);
 }
 
-// ──────────────────────────────────────────────
 // FILIAIS — Criação (apenas ADMIN)
-// ──────────────────────────────────────────────
-
 interface CriarFilialParams {
   nome: string;
   cep?: string;
@@ -152,10 +143,7 @@ export async function criarFilial(params: CriarFilialParams): Promise<FilialDeta
   return _criarFilial(params);
 }
 
-// ──────────────────────────────────────────────
 // FILIAIS — Escrita (apenas gerente dono da filial ou ADMIN)
-// ──────────────────────────────────────────────
-
 interface AtualizarFilialParams {
   nome?: string;
   cep?: string;
@@ -213,10 +201,7 @@ export async function atualizarFilial(
   return _atualizarFilial(filialId, caller, params);
 }
 
-// ──────────────────────────────────────────────
 // FILIAIS — Soft delete (apenas ADMIN)
-// ──────────────────────────────────────────────
-
 /**
  * Desativa (soft delete) uma filial.
  * Rejeita se houver veículos ativos ou gerentes vinculados.
@@ -254,10 +239,7 @@ export async function desativarFilial(filialId: string): Promise<boolean> {
   return _desativarFilial(filialId);
 }
 
-// ──────────────────────────────────────────────
 // GERENTES — Leitura (ADMIN pode ver tudo)
-// ──────────────────────────────────────────────
-
 /** Lista todos os gerentes ativos. Apenas ADMIN. */
 async function _listarGerentes(): Promise<GerenteResumo[]> {
   const r = await query(

@@ -1,7 +1,4 @@
-// ──────────────────────────────────────────────
 // TipoCarro — Entity (validação pura, sem acesso ao banco)
-// ──────────────────────────────────────────────
-
 export interface TipoCarroInput {
     nome: string;
     preco_base_diaria: number;

@@ -657,10 +657,7 @@ function getMonthName(dateStr: string): string {
   return months[date.getMonth()] || '';
 }
 
-// ──────────────────────────────────────────────────────
 // TOOLS ADICIONAIS PARA O ASSISTENTE
-// ──────────────────────────────────────────────────────
-
 /**
  * Tool: Validar se um cliente existe no sistema
  */

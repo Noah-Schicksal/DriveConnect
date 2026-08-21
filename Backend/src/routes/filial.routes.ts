@@ -37,10 +37,8 @@ function mapearErro(err: unknown): { status: number; mensagem: string } {
   return { status, mensagem };
 }
 
-// ──────────────────────────────────────────────
 // GET /filiais
 // Acesso: GERENTE, ADMIN — lista todas (dados públicos)
-// ──────────────────────────────────────────────
 export async function listarTodasFiliais(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -54,10 +52,8 @@ export async function listarTodasFiliais(req: IncomingMessage, res: ServerRespon
   }
 }
 
-// ──────────────────────────────────────────────
 // GET /filiais/:id
 // Acesso: GERENTE, ADMIN — detalhe completo (endereço)
-// ──────────────────────────────────────────────
 export async function detalharFilial(req: IncomingMessage, res: ServerResponse, filialId: string): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -73,11 +69,9 @@ export async function detalharFilial(req: IncomingMessage, res: ServerResponse, 
   }
 }
 
-// ──────────────────────────────────────────────
 // POST /filiais
 // Body: { nome, cep?, uf?, cidade?, bairro?, rua?, numero?, complemento? }
 // Acesso: ADMIN
-// ──────────────────────────────────────────────
 export async function registrarFilial(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -108,10 +102,8 @@ export async function registrarFilial(req: IncomingMessage, res: ServerResponse)
   }
 }
 
-// ──────────────────────────────────────────────
 // DELETE /filiais/:id
 // Acesso: ADMIN — soft delete (rejeita se houver vínculos)
-// ──────────────────────────────────────────────
 export async function desativarFilialHandler(req: IncomingMessage, res: ServerResponse, filialId: string): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -127,10 +119,8 @@ export async function desativarFilialHandler(req: IncomingMessage, res: ServerRe
   }
 }
 
-// ──────────────────────────────────────────────
 // PUT /filiais/:id
 // Acesso: GERENTE (só sua filial) | ADMIN (qualquer)
-// ──────────────────────────────────────────────
 export async function editarFilial(req: IncomingMessage, res: ServerResponse, filialId: string): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -152,10 +142,8 @@ export async function editarFilial(req: IncomingMessage, res: ServerResponse, fi
   }
 }
 
-// ──────────────────────────────────────────────
 // GET /gerentes
 // Acesso: apenas ADMIN
-// ──────────────────────────────────────────────
 export async function listarTodosGerentes(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
@@ -169,10 +157,8 @@ export async function listarTodosGerentes(req: IncomingMessage, res: ServerRespo
   }
 }
 
-// ──────────────────────────────────────────────
 // GET /gerentes/me
 // Acesso: GERENTE — retorna o próprio perfil
-// ──────────────────────────────────────────────
 export async function buscarMeuPerfilDeGerente(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const caller = requireCaller(req);
